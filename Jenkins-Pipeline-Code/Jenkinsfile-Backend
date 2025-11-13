@@ -45,10 +45,8 @@ pipeline {
                 script {
                     catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
                         dir('Application-Code/backend') {
-                            withCredentials([string(credentialsId: 'nvd-api-key', variable: 'NVD_API_KEY')]) {
-                                dependencyCheck additionalArguments: "--scan ./ --disableYarnAudit --disableNodeAudit --nvdApiKey ${NVD_API_KEY} --nvdApiDelay 4000", odcInstallation: 'DP-Check'
-                                dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
-                            }
+                            dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit --noupdate', odcInstallation: 'DP-Check'
+                            dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
                         }
                     }
                 }
