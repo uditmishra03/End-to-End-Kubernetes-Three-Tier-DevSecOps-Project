@@ -18,10 +18,57 @@
   - Added workflow overview with ASCII diagram
   - **Completed:** November 15, 2025
 
+- [x] **Step 2: Document prerequisites and initial setup** ✅
+  - AWS account requirements and cost considerations
+  - IAM user configuration for Terraform and EKS
+  - Complete tool installation guides (Git, AWS CLI, Terraform, kubectl, eksctl, Helm, Docker)
+  - Repository cloning and structure verification
+  - AWS region selection guidance
+  - SSH key pair setup
+  - Prerequisites checklist with verification commands
+  - Security best practices
+  - **Completed:** November 15, 2025
+
+- [x] **Step 3: Document Jenkins infrastructure setup** ✅
+  - Terraform configuration overview
+  - Variables configuration
+  - Infrastructure deployment steps
+  - Pre-installed tools list
+  - Jenkins server access instructions
+  - **Completed:** November 15, 2025
+
+- [x] **Step 4: Document Jenkins configuration and integration** ✅
+  - Initial Jenkins setup
+  - Required plugins installation
+  - Tool configuration (JDK, Node.js, SonarQube Scanner)
+  - SonarQube integration
+  - Credentials management
+  - ECR repositories creation
+  - GitHub webhook setup
+  - Pipeline job creation
+  - **Completed:** November 15, 2025
+
+- [x] **Step 5: Document EKS cluster setup** ✅
+  - EKS cluster creation with eksctl
+  - Cluster verification
+  - Namespace creation
+  - AWS Load Balancer Controller installation
+  - ECR secret configuration
+  - **Completed:** November 15, 2025
+
+- [x] **Step 6: Document application architecture** ✅
+  - Three-tier architecture overview
+  - Frontend, Backend, and Database components
+  - API endpoints documentation
+  - Communication flow diagram
+  - Environment variables
+  - Dockerfiles
+  - **Completed:** November 15, 2025
+
 ---
 
 ### 🔄 Current Step
-**Step 2:** Document prerequisites and initial setup
+**Step 7:** Document CI/CD pipelines
 
 ---
 
