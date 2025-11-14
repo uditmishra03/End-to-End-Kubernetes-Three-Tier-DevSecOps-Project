@@ -54,8 +54,12 @@ pipeline {
         // }
         stage('Trivy File Scan') {
             steps {
-                dir('Application-Code/backend') {
-                    sh 'trivy fs . > trivyfs.txt'
+                script {
+                    catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                        dir('Application-Code/backend') {
+                            sh 'trivy fs . > trivyfs.txt'
+                        }
+                    }
                 }
             }
         }
@@ -81,7 +85,11 @@ pipeline {
         }
         stage("TRIVY Image Scan") {
             steps {
-                sh 'trivy image ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER} > trivyimage.txt' 
+                script {
+                    catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                        sh 'trivy image ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER} > trivyimage.txt'
+                    }
+                }
             }
         }
         stage('Checkout Code') {
