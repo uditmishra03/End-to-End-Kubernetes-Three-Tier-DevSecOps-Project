@@ -1179,32 +1179,603 @@ alerts:
 
 ## 14. Jenkins Enhancements (Planned)
 
-*This section will be populated in Step 12*
+### 14.1 Current Pipeline Limitations
+
+- ⚠️ Sequential stage execution
+- ⚠️ No automated rollback mechanism
+- ⚠️ Limited security scanning options
+- ⚠️ Manual intervention required for failures
+- ⚠️ No deployment notifications
+
+### 14.2 Planned Improvements 🚀
+
+#### **1. Parallel Execution Optimization**
+
+**Current Flow (Sequential):**
+```
+SonarQube → Trivy FS Scan → Docker Build → ECR Push → Trivy Image Scan
+(Total: ~8-10 minutes)
+```
+
+**Optimized Flow (Parallel):**
+```groovy
+stage('Parallel Security Scans') {
+    parallel {
+        stage('SonarQube Analysis') {
+            steps { /* SonarQube scan */ }
+        }
+        stage('Trivy FS Scan') {
+            steps { /* Trivy filesystem scan */ }
+        }
+        stage('OWASP Dependency Check') {
+            steps { /* Dependency vulnerabilities */ }
+        }
+    }
+}
+```
+**Expected Time Savings:** 30-40% reduction
+
+#### **2. Automated Rollback Mechanism**
+
+```groovy
+stage('Deploy & Verify') {
+    steps {
+        script {
+            // Deploy new version
+            sh "kubectl set image deployment/api api=${NEW_IMAGE}"
+            
+            // Wait for rollout
+            sh "kubectl rollout status deployment/api -n three-tier --timeout=5m"
+            
+            // Health check
+            def healthCheck = sh(script: "curl -f http://${SERVICE_URL}/healthz", returnStatus: true)
+            
+            if (healthCheck != 0) {
+                echo "Health check failed! Rolling back..."
+                sh "kubectl rollout undo deployment/api -n three-tier"
+                error("Deployment failed health check. Rolled back to previous version.")
+            }
+        }
+    }
+}
+```
+
+#### **3. Enhanced Security Scanning**
+
+**Additional Scanners:**
+- **OWASP Dependency Check** - Known vulnerable dependencies
+- **Snyk** - Open source security
+- **Checkov** - Infrastructure as Code security
+- **Git Secrets** - Credential scanning
+
+```groovy
+stage('Comprehensive Security Scan') {
+    parallel {
+        stage('OWASP Dependency Check') {
+            steps {
+                dependencyCheck additionalArguments: '--scan ./', odcInstallation: 'DP-Check'
+                dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+            }
+        }
+        stage('Snyk Security Scan') {
+            steps {
+                snykSecurity(
+                    snykInstallation: 'Snyk',
+                    snykTokenId: 'snyk-token',
+                    severity: 'high'
+                )
+            }
+        }
+        stage('Git Secrets Scan') {
+            steps {
+                sh 'git secrets --scan'
+            }
+        }
+    }
+}
+```
+
+#### **4. Notification Integrations**
+
+**Slack Notifications:**
+```groovy
+post {
+    success {
+        slackSend(
+            color: 'good',
+            message: """
+                ✅ Pipeline SUCCESS
+                Job: ${env.JOB_NAME}
+                Build: #${env.BUILD_NUMBER}
+                Image: ${AWS_ECR_REPO_NAME}:${BUILD_NUMBER}
+            """
+        )
+    }
+    failure {
+        slackSend(
+            color: 'danger',
+            message: """
+                ❌ Pipeline FAILED
+                Job: ${env.JOB_NAME}
+                Build: #${env.BUILD_NUMBER}
+                Check: ${env.BUILD_URL}
+            """
+        )
+    }
+}
+```
+
+**Email Notifications:**
+```groovy
+post {
+    always {
+        emailext(
+            to: 'team@example.com',
+            subject: "Build ${currentBuild.result}: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+            body: """
+                Build Status: ${currentBuild.result}
+                Job: ${env.JOB_NAME}
+                Build Number: ${env.BUILD_NUMBER}
+                Build URL: ${env.BUILD_URL}
+            """,
+            attachLog: true
+        )
+    }
+}
+```
+
+#### **5. Advanced Pipeline Features**
+
+**Input Approval for Production:**
+```groovy
+stage('Production Approval') {
+    when {
+        branch 'master'
+    }
+    steps {
+        input(
+            message: 'Deploy to Production?',
+            ok: 'Deploy',
+            submitter: 'admin,devops-team'
+        )
+    }
+}
+```
+
+**Blue-Green Deployment:**
+```groovy
+stage('Blue-Green Deployment') {
+    steps {
+        script {
+            // Deploy to green environment
+            sh "kubectl apply -f k8s/green-deployment.yaml"
+            
+            // Run smoke tests
+            sh "run-smoke-tests.sh green"
+            
+            // Switch traffic to green
+            sh "kubectl patch service api -p '{\"spec\":{\"selector\":{\"version\":\"green\"}}}'"
+            
+            // Keep blue for quick rollback
+            echo "Blue environment kept for 24h for potential rollback"
+        }
+    }
+}
+```
+
+**Canary Deployment:**
+```groovy
+stage('Canary Deployment') {
+    steps {
+        script {
+            // Deploy canary (10% traffic)
+            sh "kubectl apply -f k8s/canary-deployment.yaml"
+            sh "kubectl scale deployment api-canary --replicas=1"
+            
+            // Monitor for 10 minutes
+            sleep(time: 10, unit: 'MINUTES')
+            
+            // Check error rate
+            def errorRate = getMetric('error_rate')
+            if (errorRate > 5) {
+                sh "kubectl delete deployment api-canary"
+                error("Canary failed with high error rate")
+            }
+            
+            // Full rollout
+            sh "kubectl apply -f k8s/production-deployment.yaml"
+        }
+    }
+}
+```
+
+#### **6. Performance Optimization**
+
+- **Docker Layer Caching** - Faster builds
+- **Maven/NPM Cache** - Dependency caching
+- **Parallel Testing** - Faster test execution
+- **Resource Allocation** - Dedicated build agents
+
+#### **7. Compliance & Auditing**
+
+```groovy
+stage('Compliance Check') {
+    steps {
+        script {
+            // Image signing
+            sh "cosign sign ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER}"
+            
+            // SBOM generation
+            sh "syft ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER} -o json > sbom.json"
+            
+            // Provenance
+            sh "generate-provenance.sh"
+        }
+    }
+}
+```
+
+### 14.3 Implementation Roadmap
+
+| Quarter | Enhancement | Priority |
+|---------|-------------|----------|
+| **Q1 2026** | Parallel execution | High |
+| **Q1 2026** | Automated rollback | High |
+| **Q2 2026** | Enhanced security scanning | High |
+| **Q2 2026** | Slack/Email notifications | Medium |
+| **Q3 2026** | Blue-Green deployment | Medium |
+| **Q3 2026** | Canary deployment | Medium |
+| **Q4 2026** | Compliance & SBOM | Low |
+
+### 14.4 Expected Benefits
+
+- ⚡ **40% faster** build times with parallel execution
+- 🔒 **Enhanced security** with multiple scanning tools
+- 🚀 **Zero-downtime** deployments with blue-green/canary
+- 📊 **Better visibility** with notifications
+- 🔄 **Faster recovery** with automated rollbacks
+- ✅ **Improved reliability** with health checks
 
 ---
 
 ## 15. Troubleshooting and Maintenance
 
-*This section will be populated in Step 13*
+### 15.1 Common Issues & Solutions
+
+#### **Issue: Pods in CrashLoopBackOff**
+```bash
+# Check pod status
+kubectl get pods -n three-tier
+
+# View pod logs
+kubectl logs <pod-name> -n three-tier
+
+# Describe pod for events
+kubectl describe pod <pod-name> -n three-tier
+
+# Common causes:
+# - Image pull errors → Check ECR credentials
+# - Application errors → Check environment variables
+# - Resource limits → Increase CPU/memory limits
+```
+
+#### **Issue: Jenkins Pipeline Fails at ECR Push**
+```bash
+# Solution: Refresh ECR credentials on Jenkins server
+ssh ubuntu@<jenkins-ip>
+aws ecr get-login-password --region us-east-1
+
+# Or update ECR secret in Kubernetes
+kubectl delete secret ecr-registry-secret -n three-tier
+kubectl create secret docker-registry ecr-registry-secret \
+  --docker-server=<account-id>.dkr.ecr.us-east-1.amazonaws.com \
+  --docker-username=AWS \
+  --docker-password=$(aws ecr get-login-password) \
+  --namespace=three-tier
+```
+
+#### **Issue: ArgoCD Not Syncing**
+```bash
+# Check ArgoCD application status
+argocd app get three-tier-app
+
+# Manual sync
+argocd app sync three-tier-app
+
+# Check ArgoCD logs
+kubectl logs -n argocd deployment/argocd-application-controller
+```
+
+#### **Issue: Load Balancer Not Working**
+```bash
+# Check ingress
+kubectl get ingress -n three-tier
+kubectl describe ingress mainlb -n three-tier
+
+# Check ALB controller
+kubectl get pods -n kube-system | grep aws-load-balancer
+
+# Check controller logs
+kubectl logs -n kube-system deployment/aws-load-balancer-controller
+```
+
+#### **Issue: Database Connection Failures**
+```bash
+# Check MongoDB pod
+kubectl get pod -n three-tier | grep mongodb
+
+# Test connection from backend pod
+kubectl exec -it <backend-pod> -n three-tier -- sh
+nc -zv mongodb-svc 27017
+
+# Verify secrets
+kubectl get secret mongo-sec -n three-tier -o yaml
+```
+
+### 15.2 Maintenance Tasks
+
+#### **Regular Maintenance (Weekly)**
+```bash
+# Update ECR credentials
+kubectl delete secret ecr-registry-secret -n three-tier
+# Recreate with fresh token
+
+# Check resource usage
+kubectl top nodes
+kubectl top pods -n three-tier
+
+# Review pod logs for errors
+kubectl logs -n three-tier --tail=100 deployment/api
+```
+
+#### **Monthly Maintenance**
+```bash
+# Update EKS cluster
+eksctl upgrade cluster --name three-tier-cluster
+
+# Update Helm charts
+helm repo update
+helm upgrade prometheus prometheus-community/kube-prometheus-stack -n monitoring
+
+# Review and cleanup unused images
+aws ecr list-images --repository-name backend
+aws ecr batch-delete-image --repository-name backend --image-ids imageTag=old-tag
+```
+
+#### **Backup Procedures**
+```bash
+# Backup MongoDB data
+kubectl exec -n three-tier deployment/mongodb -- mongodump --out /backup
+
+# Backup Kubernetes manifests (already in Git)
+git pull
+
+# Export ArgoCD applications
+argocd app get three-tier-app -o yaml > argocd-backup.yaml
+```
+
+### 15.3 Monitoring & Alerts
+
+**Key Metrics to Monitor:**
+- Pod restart counts
+- Resource utilization (CPU/Memory)
+- Application error rates
+- API response times
+- Database connection pool
+
+**Health Check Endpoints:**
+```bash
+# Backend health
+curl http://<alb-dns>/healthz
+curl http://<alb-dns>/ready
+
+# Prometheus
+curl http://<prometheus-url>/-/healthy
+
+# Grafana
+curl http://<grafana-url>/api/health
+```
+
+### 15.4 Log Locations
+
+| Component | Location |
+|-----------|----------|
+| Jenkins | `/var/lib/jenkins/jobs/<job-name>/builds/<build-number>/log` |
+| SonarQube | `docker logs sonar` |
+| Kubernetes Pods | `kubectl logs <pod-name> -n three-tier` |
+| ArgoCD | `kubectl logs -n argocd deployment/argocd-server` |
+| Prometheus | `kubectl logs -n monitoring prometheus-<pod>` |
+
+### 15.5 Disaster Recovery
+
+**EKS Cluster Failure:**
+```bash
+# Recreate cluster
+eksctl create cluster --name three-tier-cluster --config-file cluster-config.yaml
+
+# Redeploy applications via ArgoCD
+argocd app sync three-tier-app --force
+```
+
+**Data Loss:**
+```bash
+# Restore from MongoDB backup
+kubectl exec -n three-tier deployment/mongodb -- mongorestore /backup
+```
 
 ---
 
 ## 16. References and Best Practices
 
-*This section will be populated in Step 14*
+### 16.1 Quick Command Reference
+
+#### **AWS CLI**
+```bash
+# Configure
+aws configure
+
+# ECR Login
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <account-id>.dkr.ecr.us-east-1.amazonaws.com
+
+# List ECR images
+aws ecr list-images --repository-name backend
+```
+
+#### **kubectl**
+```bash
+# Context
+kubectl config current-context
+kubectl config use-context <context-name>
+
+# Resources
+kubectl get all -n three-tier
+kubectl get pods -n three-tier -w
+kubectl logs -f <pod-name> -n three-tier
+kubectl exec -it <pod-name> -n three-tier -- sh
+kubectl describe pod <pod-name> -n three-tier
+
+# Deployments
+kubectl rollout status deployment/<name> -n three-tier
+kubectl rollout history deployment/<name> -n three-tier
+kubectl rollout undo deployment/<name> -n three-tier
+
+# Secrets
+kubectl create secret generic <name> --from-literal=key=value -n three-tier
+kubectl get secret <name> -n three-tier -o yaml
+```
+
+#### **Helm**
+```bash
+# Repository
+helm repo add <name> <url>
+helm repo update
+
+# Install/Upgrade
+helm install <release> <chart> -n <namespace>
+helm upgrade <release> <chart> -n <namespace>
+helm list -n <namespace>
+
+# Uninstall
+helm uninstall <release> -n <namespace>
+```
+
+#### **ArgoCD**
+```bash
+# Login
+argocd login <server>
+
+# Applications
+argocd app list
+argocd app get <app-name>
+argocd app sync <app-name>
+argocd app history <app-name>
+argocd app rollback <app-name> <revision>
+```
+
+### 16.2 Security Best Practices
+
+#### **Container Security**
+- ✅ Use minimal base images (alpine, distroless)
+- ✅ Run containers as non-root user
+- ✅ Scan images for vulnerabilities (Trivy)
+- ✅ Sign container images (Cosign)
+- ✅ Implement image pull policies
+
+#### **Kubernetes Security**
+- ✅ Enable RBAC
+- ✅ Use Network Policies for pod-to-pod communication
+- ✅ Implement Pod Security Standards
+- ✅ Store secrets in AWS Secrets Manager or Vault
+- ✅ Enable audit logging
+
+#### **CI/CD Security**
+- ✅ Use separate credentials for different environments
+- ✅ Rotate secrets regularly
+- ✅ Implement approval gates for production
+- ✅ Scan code for secrets before commit
+- ✅ Use immutable build artifacts
+
+#### **AWS Security**
+- ✅ Enable MFA on all accounts
+- ✅ Use IAM roles instead of access keys
+- ✅ Enable CloudTrail for audit logs
+- ✅ Implement least privilege access
+- ✅ Enable VPC Flow Logs
+
+### 16.3 Performance Optimization
+
+**Application Level:**
+- Use connection pooling for databases
+- Implement caching (Redis)
+- Optimize Docker images (multi-stage builds)
+- Use CDN for static assets
+
+**Kubernetes Level:**
+- Set appropriate resource requests/limits
+- Use Horizontal Pod Autoscaler (HPA)
+- Implement readiness/liveness probes
+- Use node affinity for workload placement
+
+**Infrastructure Level:**
+- Use appropriate EC2 instance types
+- Enable EBS volume optimization
+- Use Application Load Balancer caching
+- Implement CloudFront for global distribution
+
+### 16.4 Cost Optimization
+
+```bash
+# Stop EKS cluster (non-production)
+eksctl delete cluster --name three-tier-cluster
+
+# Stop Jenkins server
+aws ec2 stop-instances --instance-ids <instance-id>
+
+# Delete unused ECR images
+aws ecr list-images --repository-name backend --filter tagStatus=UNTAGGED --query 'imageIds[*]' --output json | jq -r '[.[].imageDigest] | map("imageDigest=" + .) | join(" ")' | xargs -n 1 aws ecr batch-delete-image --repository-name backend --image-ids
+
+# Use Spot Instances for EKS nodes
+eksctl create nodegroup --cluster=three-tier-cluster --spot
+```
+
+### 16.5 Additional Resources
+
+**Official Documentation:**
+- [AWS EKS](https://docs.aws.amazon.com/eks/)
+- [Kubernetes](https://kubernetes.io/docs/)
+- [Jenkins](https://www.jenkins.io/doc/)
+- [ArgoCD](https://argo-cd.readthedocs.io/)
+- [Prometheus](https://prometheus.io/docs/)
+- [Grafana](https://grafana.com/docs/)
+
+**Learning Resources:**
+- [Kubernetes Patterns](https://k8spatterns.io/)
+- [12-Factor App](https://12factor.net/)
+- [GitOps Principles](https://opengitops.dev/)
+
+**Community:**
+- [CNCF Slack](https://slack.cncf.io/)
+- [Kubernetes Forum](https://discuss.kubernetes.io/)
+- [DevOps Stack Exchange](https://devops.stackexchange.com/)
+
+### 16.6 Project Maintenance
+
+**Repository:** [github.com/uditmishra03/End-to-End-Kubernetes-Three-Tier-DevSecOps-Project](https://github.com/uditmishra03/End-to-End-Kubernetes-Three-Tier-DevSecOps-Project)
+
+**Contributions:** Pull requests welcome!
+
+**Issues:** Report bugs or request features via GitHub Issues
+
+**License:** MIT License
 
 ---
 
-## Contributing
+**🎉 End of Documentation**
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+**Last Updated:** November 15, 2025  
+**Version:** 1.0  
+**Estimated Read Time:** ~12-15 minutes
 
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+For questions or support, please open an issue on GitHub or contact the maintainers.
 
 ---
-
-**📝 Note:** This is a living document and will be updated as the project evolves. Screenshots and diagrams can be added manually to the placeholder sections.
-
-**🚀 Happy DevOps Journey!**
