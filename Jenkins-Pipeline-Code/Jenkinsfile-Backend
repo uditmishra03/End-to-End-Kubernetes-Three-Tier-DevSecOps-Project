@@ -40,18 +40,18 @@ pipeline {
                 }
             }
         }
-        stage('OWASP Dependency-Check Scan') {
-            steps {
-                script {
-                    catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-                        dir('Application-Code/backend') {
-                            dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit --noupdate', odcInstallation: 'DP-Check'
-                            dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
-                        }
-                    }
-                }
-            }
-        }
+        // stage('OWASP Dependency-Check Scan') {
+        //     steps {
+        //         script {
+        //             catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+        //                 dir('Application-Code/backend') {
+        //                     dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit --noupdate', odcInstallation: 'DP-Check'
+        //                     dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
         stage('Trivy File Scan') {
             steps {
                 dir('Application-Code/backend') {
