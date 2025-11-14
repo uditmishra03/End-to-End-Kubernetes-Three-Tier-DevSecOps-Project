@@ -12,6 +12,18 @@ pipeline {
         REPOSITORY_URI = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/"
     }
     stages {
+        stage('Check Commit Message') {
+            steps {
+                script {
+                    def commitMessage = sh(returnStdout: true, script: 'git log -1 --pretty=%B').trim()
+                    if (commitMessage.contains('[automated-deployment]')) {
+                        echo "Skipping build - automated deployment commit detected"
+                        currentBuild.result = 'NOT_BUILT'
+                        error('Stopping pipeline - automated deployment')
+                    }
+                }
+            }
+        }
         stage('Cleaning Workspace') {
             steps {
                 cleanWs()
