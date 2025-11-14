@@ -117,7 +117,7 @@ pipeline {
                             if git diff --staged --quiet; then
                                 echo "No changes to commit"
                             else
-                                git commit -m "Update deployment Image to version ${BUILD_NUMBER}"
+                                git commit -m "[automated-deployment] Update backend image to version ${BUILD_NUMBER}"
                                 git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:master
                             fi
                         '''
