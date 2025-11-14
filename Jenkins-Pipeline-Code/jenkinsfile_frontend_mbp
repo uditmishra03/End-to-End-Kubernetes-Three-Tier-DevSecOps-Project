@@ -88,34 +88,42 @@ pipeline {
                 }
             }
         }
-        stage('Checkout Code') {
-            steps {
-                git credentialsId: 'GITHUB', url: 'https://github.com/uditmishra03/End-to-End-Kubernetes-Three-Tier-DevSecOps-Project.git'
-            }
-        }
-        stage('Update Deployment file') {
-            environment {
-                GIT_REPO_NAME = "End-to-End-Kubernetes-Three-Tier-DevSecOps-Project"
-                GIT_USER_NAME = "uditmishra03"
-            }
-            steps {
-                dir('Kubernetes-Manifests-file/Frontend') {
-                    withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
-                        sh '''
-                            git config user.email "uditmishra.um@gmail.com"
-                            git config user.name "uditmishra03"
-                            BUILD_NUMBER=${BUILD_NUMBER}
-                            echo $BUILD_NUMBER
-                            imageTag=$(grep -oP '(?<=frontend:)[^ ]+' deployment.yaml)
-                            echo $imageTag
-                            sed -i "s/${AWS_ECR_REPO_NAME}:${imageTag}/${AWS_ECR_REPO_NAME}:${BUILD_NUMBER}/" deployment.yaml
-                            git add deployment.yaml
-                            git commit -m "[automated-deployment] Update frontend image to version ${BUILD_NUMBER}"
-                            git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:master
-                        '''
-                    }
-                }
-            }
+        // Commented out for testing ArgoCD Image Updater - Will remove after confirming it works
+        // stage('Checkout Code') {
+        //     steps {
+        //         git credentialsId: 'GITHUB', url: 'https://github.com/uditmishra03/End-to-End-Kubernetes-Three-Tier-DevSecOps-Project.git'
+        //     }
+        // }
+        // stage('Update Deployment file') {
+        //     environment {
+        //         GIT_REPO_NAME = "End-to-End-Kubernetes-Three-Tier-DevSecOps-Project"
+        //         GIT_USER_NAME = "uditmishra03"
+        //     }
+        //     steps {
+        //         dir('Kubernetes-Manifests-file/Frontend') {
+        //             withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
+        //                 sh '''
+        //                     git config user.email "uditmishra.um@gmail.com"
+        //                     git config user.name "uditmishra03"
+        //                     BUILD_NUMBER=${BUILD_NUMBER}
+        //                     echo $BUILD_NUMBER
+        //                     imageTag=$(grep -oP '(?<=frontend:)[^ ]+' deployment.yaml)
+        //                     echo $imageTag
+        //                     sed -i "s/${AWS_ECR_REPO_NAME}:${imageTag}/${AWS_ECR_REPO_NAME}:${BUILD_NUMBER}/" deployment.yaml
+        //                     git add deployment.yaml
+        //                     git commit -m "[automated-deployment] Update frontend image to version ${BUILD_NUMBER}"
+        //                     git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:master
+        //                 '''
+        //             }
+        //         }
+        //     }
+        // }
+    }
+    post {
+        success {
+            echo "Pipeline completed successfully!"
+            echo "Frontend image pushed to ECR: ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER}"
+            echo "ArgoCD Image Updater will automatically detect and deploy the new image"
         }
     }
 }
