@@ -1,3 +1,3 @@
 kustomize:
   images:
-  - 296062548155.dkr.ecr.us-east-1.amazonaws.com/frontend:3
+  - 296062548155.dkr.ecr.us-east-1.amazonaws.com/frontend:5
