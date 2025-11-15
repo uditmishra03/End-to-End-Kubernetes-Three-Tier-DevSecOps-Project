@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- deployment.yaml
+- service.yaml
+
+images:
+- name: 296062548155.dkr.ecr.us-east-1.amazonaws.com/frontend
+  newTag: "4"
