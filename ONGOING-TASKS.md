@@ -1,46 +1,85 @@
 # Ongoing Tasks - Three-Tier DevSecOps Project
 
-**Last Updated:** November 15, 2025
+**Last Updated:** November 16, 2025
 
 ---
 
 ## 🔄 In Progress
 
-### 1. **Automated CI/CD with Webhook - Infinite Loop Prevention**
-**Status:** 🟡 Testing Solution  
+### 1. **Fully Automated CI/CD Pipeline with ArgoCD Image Updater**
+**Status:** � Resolved - Testing Phase  
 **Priority:** High  
-**Assigned Date:** Nov 15, 2025
+**Assigned Date:** Nov 15-16, 2025
 
 **Problem:**
-- GitHub webhook triggers Jenkins on every push
-- Jenkins pipeline was updating deployment.yaml files and pushing back to GitHub
-- This created an infinite loop: Code push → Build → Deployment update → Triggers new build → Repeat
-- Initial solution (commit message check with `NOT_BUILT` result) created clumsy build entries in Jenkins UI
+- Initial infinite loop: Jenkins → Updates deployment.yaml → Git push → Webhook triggers Jenkins → Loop
+- Attempted solutions with commit message checks created unwanted NOT_BUILT entries
 
 **Solution Implemented:**
-- Removed deployment file update stages from Jenkins MBP pipelines (currently commented out)
-- Jenkins now only: Build → Scan → Push to ECR → Stop
-- No git commits = No webhook loop ✅
-- Clean, single build per actual code change
+1. **Installed ArgoCD Image Updater** (v0.12.2) to handle automatic image updates
+2. **Removed deployment update stages** from Jenkins MBP pipelines
+3. **Configured Kustomize** support for backend and frontend applications
+4. **Set up ECR authentication** for Image Updater using docker-registry secret
+5. **Configured Git credentials** for ArgoCD to access GitHub repository
+6. **Changed write-back method to `argocd`** mode to prevent Git commits and webhook loops
+
+**Steps Performed:**
+
+**Phase 1: Kustomize Setup**
+- Created `kustomization.yaml` files in Backend and Frontend directories
+- Updated ArgoCD applications to use Kustomize (added `kustomize: {}` to source spec)
+- Enabled auto-sync on `backend` and `frontend` applications
+
+**Phase 2: ArgoCD Image Updater Installation**
+- Installed Image Updater: `kubectl apply -f https://raw.githubusercontent.com/argoproj-labs/argocd-image-updater/v0.12.2/manifests/install.yaml`
+- Added annotations to applications for image tracking:
+  - `argocd-image-updater.argoproj.io/image-list`
+  - `argocd-image-updater.argoproj.io/update-strategy: latest`
+  - `argocd-image-updater.argoproj.io/allow-tags: regexp:^[0-9]+$`
+
+**Phase 3: ECR Authentication**
+- Created docker-registry secret with ECR credentials
+- Updated Image Updater ConfigMap with registry configuration:
+  ```yaml
+  registries:
+  - name: ECR
+    prefix: 296062548155.dkr.ecr.us-east-1.amazonaws.com
+    api_url: https://296062548155.dkr.ecr.us-east-1.amazonaws.com
+    credentials: pullsecret:argocd/ecr-registry-secret
+  ```
+
+**Phase 4: Git Write-Back Configuration**
+- Created GitHub credentials secret for ArgoCD
+- Initially configured `write-back-method: git` (caused webhook loops)
+- **Final solution**: Changed to `write-back-method: argocd` to avoid Git commits
+
+**Phase 5: Loop Prevention**
+- Image Updater now updates ArgoCD application spec directly (no Git commits)
+- No webhook triggers from Image Updater changes
+- Clean Jenkins build history
+
+**Current State:**
+- ✅ Jenkins MBP pipelines: Build → Scan → Push to ECR only
+- ✅ ArgoCD Image Updater: Monitors ECR → Updates ArgoCD app spec directly
+- ✅ ArgoCD: Auto-syncs deployments when image changes detected
+- ✅ No infinite loops
 
 **Files Modified:**
-- `Jenkins-Pipeline-Code/jenkinsfile_backend_mbp` - Commented out deployment update stage
-- `Jenkins-Pipeline-Code/jenkinsfile_frontend_mbp` - Commented out deployment update stage
+- `Kubernetes-Manifests-file/Backend/kustomization.yaml` (created)
+- `Kubernetes-Manifests-file/Frontend/kustomization.yaml` (created)
+- Removed: `Kubernetes-Manifests-file/argocd-backend-app.yaml`
+- Removed: `Kubernetes-Manifests-file/argocd-frontend-app.yaml`
+
+**Remaining Issues:**
+- `three-tier-backend` and `three-tier-frontend` applications keep reappearing
+- Issue: `ingress` application synced to old commit that had the manifest files
+- Solution: Need to sync `ingress` application to latest HEAD
 
 **Next Steps:**
-1. Commit and push the commented-out Jenkinsfiles
-2. Test webhook triggers - should see only ONE build per code change
-3. Choose deployment update strategy:
-   - **Option A (Manual):** Update deployment.yaml files manually when needed
-   - **Option B (Automated):** Configure ArgoCD Image Updater for automatic updates
-
-**Related Files:**
-- `Kubernetes-Manifests-file/argocd-backend-app.yaml` (created, not applied)
-- `Kubernetes-Manifests-file/argocd-frontend-app.yaml` (created, not applied)
-
-**ArgoCD Image Updater:**
-- Installed: ✅ (v0.12.2)
-- Configured: ❌ (needs ECR credentials and Git write-back setup)
+1. Sync ingress application to latest commit
+2. Test end-to-end flow: Code change → Jenkins build → ECR push → Image Updater → ArgoCD deploy
+3. Verify no webhook loops or duplicate applications
+4. Document final automated workflow
 
 ---
 
