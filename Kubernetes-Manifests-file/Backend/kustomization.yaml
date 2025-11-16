@@ -7,4 +7,4 @@ resources:
 
 images:
 - name: 296062548155.dkr.ecr.us-east-1.amazonaws.com/backend
-  newTag: "6"
+  newTag: "17"
