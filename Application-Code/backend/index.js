@@ -18,7 +18,7 @@ app.get('/healthz', (req, res) => {
 });
 
 let lastReadyState = null;
-// Readiness check to see if the server is ready to serve requests     
+// Readiness check to see if the server is ready to serve requests 
 app.get('/ready', (req, res) => {
     // Here you can add logic to check database connection or other dependencies
     const isDbConnected = mongoose.connection.readyState === 1;

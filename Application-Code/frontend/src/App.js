@@ -1,7 +1,7 @@
 import React from "react";
 import Tasks from "./Tasks";
 import { Paper, TextField, Checkbox, Button } from "@material-ui/core";
-import "./App.css"; // Update your CSS file accordingly
+import "./App.css"; // Update your CSS file accordingly   
 
 class App extends Tasks {
     state = { tasks: [], currentTask: "" };
