@@ -1,3 +1,0 @@
-kustomize:
-  images:
-  - 296062548155.dkr.ecr.us-east-1.amazonaws.com/backend:12
