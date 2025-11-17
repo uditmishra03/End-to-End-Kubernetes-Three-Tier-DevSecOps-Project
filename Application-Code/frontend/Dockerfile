@@ -1,6 +1,6 @@
 ### Frontend production build (React) multi-stage container
 ### Stage 1: Build static assets using a pinned Node.js version
-FROM node:18.20.8-alpine AS build
+FROM node:18-alpine AS build
 WORKDIR /app
 ENV CI=true
 COPY package*.json ./
@@ -8,8 +8,8 @@ RUN npm install --no-audit --no-fund
 COPY . .
 RUN npm run build
 
-### Stage 2: Use Nginx to serve static content (smaller attack surface)
-FROM nginx:1.27-alpine
+### Stage 2: Use Nginx stable to serve static content (smaller attack surface)
+FROM nginx:1.27.2-alpine
 WORKDIR /usr/share/nginx/html
 COPY --from=build /app/build .
 COPY nginx.conf /etc/nginx/conf.d/default.conf
