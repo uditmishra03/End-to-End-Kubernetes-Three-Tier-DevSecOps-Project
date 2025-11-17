@@ -24,6 +24,36 @@
 
 ---
 
+## ⚡ Quick Reference: Node Group Recreation
+
+### **Critical Information to Save Before Deleting Node Group:**
+
+| Item | Where to Find | Example Value |
+|------|---------------|---------------|
+| **Subnets** | EKS Console → Node Group → Details | subnet-0aa439b4ddafcca10, subnet-0b95df318219145ca |
+| **Node IAM Role** | EKS Console → Node Group → Details | arn:aws:iam::296062548155:role/eksctl-Three-Tier-K8s-EKS-Cluster-NodeInstanceRole-xxxxx |
+| **Instance Type** | Node Group → Details | t2.medium |
+| **Disk Size** | Node Group → Details | 20 GB |
+| **Scaling Config** | Node Group → Details | Desired: 2, Min: 1, Max: 3 |
+
+**💡 Tip:** Take a screenshot of the node group details page before deleting!
+
+---
+
+### **Quick Recreate Steps (Console Method - No CLI Needed):**
+
+1. **EKS Console** → **three-tier-cluster** → **Compute** → **Add node group**
+2. **Name:** Any name (e.g., `ng-960b346f` or `three-tier-nodes`)
+3. **IAM Role:** Select saved role
+4. **Instance type:** t2.medium
+5. **Scaling:** Desired=2, Min=1, Max=3
+6. **Subnets:** Select saved subnets (usually 2-3 subnets)
+7. **Create** → Wait 5-10 minutes
+
+**Verify:** `kubectl get nodes` should show 2 nodes in Ready state
+
+---
+
 ## 🛑 Phase 1: Shutdown Process (End of Day)
 
 ### Step 1: Backup Critical Data (5 minutes)
@@ -68,19 +98,66 @@ kubectl scale statefulset prometheus-kube-prometheus-prometheus --replicas=0 -n 
 
 ### Step 3: Delete EKS Node Group (5 minutes)
 
-**⚠️ This is the biggest cost saver!**
+**⚠️ This is the biggest cost saver! (~$2.16/day savings)**
 
-```bash
-# List node groups
-eksctl get nodegroup --cluster three-tier-cluster --region us-east-1
+#### **CRITICAL: Save Configuration First!**
 
-# Delete the node group (saves ~$2.16/day)
-eksctl delete nodegroup --cluster=three-tier-cluster --name=<nodegroup-name> --region us-east-1
+Before deleting, go to **AWS Console** → **EKS** → **three-tier-cluster** → **Compute** tab → Click node group and **SAVE:**
+- Subnets (2-3 subnet IDs)
+- Node IAM Role ARN
+- Instance type (t2.medium)
+- Disk size (20 GB)
+- Scaling config (2/1/3)
+
+**Screenshot recommended!**
+
+---
+
+#### **Method 1: Delete via AWS Console (Easiest)**
+
+1. Go to **AWS Console** → **EKS** → **three-tier-cluster** → **Compute** tab
+2. Select node group (e.g., `ng-960b346f`)
+3. Click **Delete**
+4. Type node group name to confirm
+5. Click **Delete**
+
+**Wait 2-3 minutes for deletion to complete**
+
+---
+
+#### **Method 2: Delete via AWS CLI**
+
+```powershell
+aws eks delete-nodegroup `
+  --cluster-name three-tier-cluster `
+  --nodegroup-name ng-960b346f `
+  --region us-east-1
 ```
 
-**Alternative: Scale to 0 nodes**
+---
+
+#### **Method 3: Using eksctl (if installed)**
+
 ```bash
-eksctl scale nodegroup --cluster=three-tier-cluster --name=<nodegroup-name> --nodes=0 --region us-east-1
+# List node groups first
+eksctl get nodegroup --cluster three-tier-cluster --region us-east-1
+
+# Delete the node group
+eksctl delete nodegroup --cluster=three-tier-cluster --name=ng-960b346f --region us-east-1
+```
+
+---
+
+#### **Verify Deletion:**
+
+```powershell
+# Check in AWS
+aws eks list-nodegroups --cluster-name three-tier-cluster --region us-east-1
+
+# Check in Kubernetes (nodes should disappear)
+kubectl get nodes
+
+# Expected output: No resources found
 ```
 
 ### Step 4: Stop Jenkins EC2 Instance (1 minute)
@@ -145,6 +222,96 @@ echo "Access Jenkins at: http://$NEW_IP:8080"
 
 ### Step 2: Recreate EKS Node Group (5-10 minutes)
 
+⚠️ **IMPORTANT: Before deleting node group, save these details!**
+
+#### **Before Deletion - Save Node Group Configuration:**
+
+1. Go to **AWS Console** → **EKS** → **three-tier-cluster** → **Compute** tab
+2. Click on node group name (e.g., `ng-960b346f`)
+3. **SAVE THESE VALUES:**
+   - **Subnets:** (e.g., subnet-xxxxx, subnet-yyyyy) - Usually 2-3 subnets
+   - **Node IAM Role ARN:** (e.g., arn:aws:iam::296062548155:role/eksctl-Three-Tier-K8s-EKS-Cluster-NodeInstanceRole-xxxxx)
+   - **Instance type:** t2.medium
+   - **Disk size:** 20 GB (default)
+   - **Desired/Min/Max size:** 2/1/3
+
+**Screenshot or note these down!**
+
+---
+
+#### **Method 1: Recreate via AWS Console (Recommended - No CLI needed)**
+
+1. **Go to:** AWS Console → EKS → Clusters → **three-tier-cluster** → **Compute** tab
+
+2. **Click:** "Add node group"
+
+3. **Configure node group:**
+   - **Name:** `ng-960b346f` (or any name like `three-tier-nodes`)
+   - **Node IAM Role:** Select the role you saved earlier
+     - Format: `eksctl-Three-Tier-K8s-EKS-Cluster-NodeInstanceRole-xxxxx`
+     - If not visible, select from dropdown
+   - Click **Next**
+
+4. **Set compute configuration:**
+   - **AMI type:** Amazon Linux 2 (AL2_x86_64)
+   - **Capacity type:** On-Demand
+   - **Instance types:** t2.medium
+   - **Disk size:** 20 GiB
+   - Click **Next**
+
+5. **Set scaling configuration:**
+   - **Desired size:** 2
+   - **Minimum size:** 1
+   - **Maximum size:** 3
+   - Click **Next**
+
+6. **Specify networking:**
+   - **Subnets:** Select the SAME subnets you saved earlier
+     - Usually 2-3 subnets from different AZs (us-east-1a, us-east-1b, us-east-1c)
+   - **Configure remote access:** No (leave unchecked unless you need SSH access)
+   - Click **Next**
+
+7. **Review and create:**
+   - Review all settings
+   - Click **Create**
+
+**Wait 5-10 minutes for node group to be created and nodes to be Ready**
+
+---
+
+#### **Method 2: Using AWS CLI (PowerShell)**
+
+**Prerequisites:** You need subnet IDs and IAM role ARN saved from before deletion
+
+```powershell
+# Replace these values with your saved configuration
+$CLUSTER_NAME = "three-tier-cluster"
+$NODEGROUP_NAME = "ng-960b346f-new"
+$NODE_ROLE_ARN = "arn:aws:iam::296062548155:role/eksctl-Three-Tier-K8s-EKS-Cluster-NodeInstanceRole-xxxxx"
+$SUBNET_IDS = "subnet-xxxxx,subnet-yyyyy,subnet-zzzzz"
+
+# Create node group
+aws eks create-nodegroup `
+  --cluster-name $CLUSTER_NAME `
+  --nodegroup-name $NODEGROUP_NAME `
+  --scaling-config minSize=1,maxSize=3,desiredSize=2 `
+  --disk-size 20 `
+  --subnets $SUBNET_IDS `
+  --instance-types t2.medium `
+  --node-role $NODE_ROLE_ARN `
+  --region us-east-1
+
+# Wait for node group to be active
+aws eks wait nodegroup-active `
+  --cluster-name $CLUSTER_NAME `
+  --nodegroup-name $NODEGROUP_NAME `
+  --region us-east-1
+```
+
+---
+
+#### **Method 3: Using eksctl (If you have it installed)**
+
 ```bash
 # Recreate node group with same configuration
 eksctl create nodegroup \
@@ -156,15 +323,29 @@ eksctl create nodegroup \
   --nodes-min=1 \
   --nodes-max=3 \
   --managed
+```
 
-# Wait for nodes to be ready
+---
+
+#### **Verify Node Group Creation:**
+
+```powershell
+# Check node group status in AWS
+aws eks describe-nodegroup `
+  --cluster-name three-tier-cluster `
+  --nodegroup-name ng-960b346f `
+  --region us-east-1
+
+# Wait for nodes to be ready in Kubernetes
 kubectl get nodes -w
+
+# You should see output like:
+# NAME                             STATUS   ROLES    AGE   VERSION
+# ip-192-168-22-193.ec2.internal   Ready    <none>   2m    v1.32.9-eks-c39b1d0
+# ip-192-168-36-77.ec2.internal    Ready    <none>   2m    v1.32.9-eks-c39b1d0
 ```
 
-**Or scale back up:**
-```bash
-eksctl scale nodegroup --cluster=three-tier-cluster --name=<nodegroup-name> --nodes=2 --region us-east-1
-```
+**Once you see 2 nodes with STATUS "Ready", proceed to next step!**
 
 ### Step 3: Configure kubectl Context (1 minute)
 

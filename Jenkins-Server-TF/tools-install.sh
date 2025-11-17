@@ -15,6 +15,16 @@ echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] \
 sudo apt-get update -y
 sudo apt-get install jenkins -y
 
+# Optimize Jenkins JVM settings for better performance
+sudo mkdir -p /etc/systemd/system/jenkins.service.d
+sudo tee /etc/systemd/system/jenkins.service.d/override.conf > /dev/null <<EOF
+[Service]
+Environment="JAVA_OPTS=-Djava.awt.headless=true -Xmx4g -Xms2g -XX:MaxMetaspaceSize=512m -XX:+UseG1GC -XX:+DisableExplicitGC -XX:+ParallelRefProcEnabled -XX:+UseStringDeduplication -Dhudson.model.DirectoryBrowserSupport.CSP="
+Environment="JENKINS_OPTS=--sessionTimeout=1440"
+EOF
+sudo systemctl daemon-reload
+sudo systemctl restart jenkins
+
 # Installing Docker 
 #!/bin/bash
 sudo apt update
@@ -27,9 +37,12 @@ sudo chmod 777 /var/run/docker.sock
 # If you don't want to install Jenkins, you can create a container of Jenkins
 # docker run -d -p 8080:8080 -p 50000:50000 --name jenkins-container jenkins/jenkins:lts
 
-# Run Docker Container of Sonarqube
+# Run Docker Container of Sonarqube with memory limits
 #!/bin/bash
-docker run -d  --name sonar -p 9000:9000 sonarqube:lts-community
+docker run -d --name sonar -p 9000:9000 \
+  -e SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true \
+  --memory="2g" --memory-swap="2g" \
+  sonarqube:lts-community
 
 
 # Installing AWS CLI
