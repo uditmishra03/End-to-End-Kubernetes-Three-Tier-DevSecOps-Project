@@ -25,10 +25,10 @@ spec:
       - name: ecr-registry-secret
       containers:
       - name: frontend
-        image: 296062548155.dkr.ecr.us-east-1.amazonaws.com/frontend:4
+        image: 296062548155.dkr.ecr.us-east-1.amazonaws.com/frontend:23
         imagePullPolicy: Always
         env:
         - name: REACT_APP_BACKEND_URL
           value: "http://k8s-threetie-mainlb-1dd958d0ec-128970382.us-east-1.elb.amazonaws.com/api/tasks"
         ports:
-        - containerPort: 3000
+        - containerPort: 80
