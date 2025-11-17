@@ -22,7 +22,7 @@ pipeline {
                 git credentialsId: 'GITHUB', url: 'https://github.com/uditmishra03/End-to-End-Kubernetes-Three-Tier-DevSecOps-Project.git'
             }
         }
-        stage('Sonarqube Analysis') {
+        stage('Sonarqube Analysis & Quality Check') {
             steps {
                 dir('Application-Code/backend') {
                     withSonarQubeEnv('sonar-server') {
@@ -31,10 +31,6 @@ pipeline {
                         -Dsonar.projectKey=three-tier-backend '''
                     }
                 }
-            }
-        }
-        stage('Quality Check') {
-            steps {
                 script {
                     timeout(time: 5, unit: 'MINUTES') {
                         waitForQualityGate abortPipeline: false, credentialsId: 'sonar-token'
@@ -70,6 +66,7 @@ pipeline {
                 script {
                     dir('Application-Code/backend') {
                         sh 'aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${REPOSITORY_URI}'
+                        sh 'docker buildx use mybuilder'
                         sh 'docker buildx build --platform linux/amd64,linux/arm64 -t ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER} --push .'
                     }
                 }
