@@ -15,12 +15,14 @@ echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] \
 sudo apt-get update -y
 sudo apt-get install jenkins -y
 
-# Optimize Jenkins JVM settings for better performance
+# Optimize Jenkins JVM settings for t3a.xlarge (4 vCPUs, 16GB RAM) - Balanced for DevSecOps
 sudo mkdir -p /etc/systemd/system/jenkins.service.d
 sudo tee /etc/systemd/system/jenkins.service.d/override.conf > /dev/null <<EOF
 [Service]
-Environment="JAVA_OPTS=-Djava.awt.headless=true -Xmx4g -Xms2g -XX:MaxMetaspaceSize=512m -XX:+UseG1GC -XX:+DisableExplicitGC -XX:+ParallelRefProcEnabled -XX:+UseStringDeduplication -Dhudson.model.DirectoryBrowserSupport.CSP="
+Environment="JAVA_OPTS=-Djava.awt.headless=true -Xmx8g -Xms4g -XX:MaxMetaspaceSize=512m -XX:+UseG1GC -XX:+AlwaysPreTouch -XX:+UseStringDeduplication -XX:+ParallelRefProcEnabled -XX:+DisableExplicitGC -XX:MaxGCPauseMillis=200 -Djava.net.preferIPv4Stack=true -Dhudson.model.DirectoryBrowserSupport.CSP=
+-Dhudson.security.csrf.DefaultCrumbIssuer.EXCLUDE_SESSION_ID=true -Djenkins.install.runSetupWizard=false"
 Environment="JENKINS_OPTS=--sessionTimeout=1440"
+LimitNOFILE=8192
 EOF
 sudo systemctl daemon-reload
 sudo systemctl restart jenkins
@@ -42,7 +44,8 @@ sudo chmod 777 /var/run/docker.sock
 docker run -d --name sonar -p 9000:9000 \
   --restart=unless-stopped \
   -e SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true \
-  --memory="2g" --memory-swap="2g" \
+  --memory="4g" --memory-swap="4g" \
+  --cpus="2" \
   sonarqube:lts-community
 
 

@@ -3,13 +3,15 @@
 
 echo "=== Optimizing Jenkins Server Performance ==="
 
-# 1. Configure Jenkins JVM settings
+# 1. Configure Jenkins JVM settings for t3a.xlarge (4 vCPUs, 16GB RAM) - Balanced for DevSecOps
 echo "Configuring Jenkins JVM settings..."
 sudo mkdir -p /etc/systemd/system/jenkins.service.d
 sudo tee /etc/systemd/system/jenkins.service.d/override.conf > /dev/null <<EOF
 [Service]
-Environment="JAVA_OPTS=-Djava.awt.headless=true -Xmx4g -Xms2g -XX:MaxMetaspaceSize=512m -XX:+UseG1GC -XX:+DisableExplicitGC -XX:+ParallelRefProcEnabled -XX:+UseStringDeduplication -Dhudson.model.DirectoryBrowserSupport.CSP="
+Environment="JAVA_OPTS=-Djava.awt.headless=true -Xmx8g -Xms4g -XX:MaxMetaspaceSize=512m -XX:+UseG1GC -XX:+AlwaysPreTouch -XX:+UseStringDeduplication -XX:+ParallelRefProcEnabled -XX:+DisableExplicitGC -XX:MaxGCPauseMillis=200 -Djava.net.preferIPv4Stack=true -Dhudson.model.DirectoryBrowserSupport.CSP=
+-Dhudson.security.csrf.DefaultCrumbIssuer.EXCLUDE_SESSION_ID=true"
 Environment="JENKINS_OPTS=--sessionTimeout=1440"
+LimitNOFILE=8192
 EOF
 
 # 2. Reload systemd and restart Jenkins
@@ -29,7 +31,8 @@ echo "Starting SonarQube with memory limits and auto-restart..."
 docker run -d --name sonar -p 9000:9000 \
   --restart=unless-stopped \
   -e SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true \
-  --memory="2g" --memory-swap="2g" \
+  --memory="4g" --memory-swap="4g" \
+  --cpus="2" \
   sonarqube:lts-community
 
 # 4. Set system-level optimizations
@@ -54,10 +57,10 @@ echo "=== Optimization Complete ==="
 echo "Jenkins should be available in 1-2 minutes at http://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4):8080"
 echo ""
 echo "Memory allocation summary:"
-echo "- Jenkins JVM: 2GB initial, 4GB max heap"
-echo "- SonarQube: 2GB limit"
-echo "- System: ~2GB for OS and other processes"
-echo "- Total instance: t2.2xlarge (32GB RAM, 8 vCPUs)"
+echo "- Jenkins JVM: 4GB initial, 8GB max heap"
+echo "- SonarQube: 4GB limit, 2 CPU cores"
+echo "- Docker & System: ~4GB for builds and OS"
+echo "- Optimized for: t3a.xlarge (16GB RAM, 4 vCPUs) - Balanced DevSecOps workload"
 echo ""
 echo "To check Jenkins status: sudo systemctl status jenkins"
 echo "To view Jenkins logs: sudo journalctl -u jenkins -f"
