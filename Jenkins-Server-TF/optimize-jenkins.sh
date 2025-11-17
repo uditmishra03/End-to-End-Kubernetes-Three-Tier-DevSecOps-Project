@@ -25,8 +25,9 @@ if docker ps -a | grep -q sonar; then
     docker rm sonar
 fi
 
-echo "Starting SonarQube with memory limits..."
+echo "Starting SonarQube with memory limits and auto-restart..."
 docker run -d --name sonar -p 9000:9000 \
+  --restart=unless-stopped \
   -e SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true \
   --memory="2g" --memory-swap="2g" \
   sonarqube:lts-community
