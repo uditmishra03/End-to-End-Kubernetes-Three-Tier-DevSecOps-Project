@@ -4,7 +4,8 @@
 This document consolidates all planned enhancements, improvements, and future scope for the Kubernetes Three-Tier DevSecOps Project. It serves as a single source of truth for upcoming work and project evolution.
 
 **Last Updated:** November 17, 2025  
-**Status:** Active Planning Document
+**Status:** Active Planning Document  
+**Priority Order:** High → Medium → Low (Top to Bottom)
 
 ---
 
@@ -24,42 +25,54 @@ This document consolidates all planned enhancements, improvements, and future sc
 
 ## High Priority Enhancements
 
-### 1. ✅ ArgoCD Image Updater (IN PROGRESS)
-**Status:** 🔄 Testing Phase  
-**Priority:** High  
+### 1. 🚨 Fix ArgoCD Image Updater for Backend Application (CRITICAL)
+**Status:** 🔴 BLOCKING - In Progress  
+**Priority:** Critical/High  
 **Complexity:** Medium  
-**Timeline:** Q4 2025 (Current)
+**Timeline:** Immediate (Q4 2025)
 
 **Description:**
-Implement automated image updates using ArgoCD Image Updater to eliminate Jenkins webhook loop and enable true GitOps workflow.
+Fix the ArgoCD Image Updater issue specifically for the backend application to complete the end-to-end CI/CD pipeline. Currently blocking automated deployments.
 
-**Benefits:**
-- ✅ Eliminates infinite Jenkins webhook loop
-- ✅ True GitOps-based deployment workflow
-- ✅ Automatic image tag updates in deployment manifests
-- ✅ Reduced manual intervention
+**Current Issue:**
+- Frontend image updater working correctly
+- Backend application image updater not functioning
+- CI/CD pipeline incomplete - manual intervention required
+- Blocks the goal: "Push code → Automatic deployment"
+
+**Goal:**
+Complete CI/CD pipeline where each code push to applications triggers automatic deployment without manual steps.
 
 **Current Status:**
-- ArgoCD Image Updater v0.12.2 installed
-- Kustomize configuration complete
-- ECR authentication configured
-- Testing in progress
+- ✅ ArgoCD Image Updater v0.12.2 installed
+- ✅ Kustomize configuration complete
+- ✅ ECR authentication configured
+- ✅ Frontend working
+- ❌ Backend application needs fix
 
 **Remaining Work:**
-- Final validation and testing
-- Documentation of complete workflow
-- Training team on new process
+- 🔴 Debug backend image updater configuration
+- 🔴 Test backend automatic deployment
+- ✅ Validate end-to-end workflow (frontend + backend)
+- 📝 Document complete CI/CD flow
+
+**Success Criteria:**
+- Push to backend code → Jenkins build → ECR push → ArgoCD auto-sync → Deployment updated
+- Zero manual intervention required
+- Both frontend and backend auto-deploying
 
 ---
 
-### 2. 📋 HTTPS Implementation with AWS Certificate Manager
+### 2. 🔐 HTTPS Implementation - STRICTLY Required (No HTTP)
 **Status:** 🚀 Planned  
-**Priority:** High  
+**Priority:** Critical/High  
 **Complexity:** Medium  
-**Timeline:** Q1 2026  
+**Timeline:** Q4 2025 / Q1 2026  
 **Estimated Time:** 2-3 hours
 
 **Description:**
+⚠️ **STRICT REQUIREMENT:** Application endpoint MUST use HTTPS only. HTTP access will be disabled.
+
 Secure application with HTTPS using AWS Certificate Manager (ACM) and custom domain.
 
 **Implementation Steps:**
@@ -89,15 +102,169 @@ Secure application with HTTPS using AWS Certificate Manager (ACM) and custom dom
 
 ---
 
-### 3. 📋 Complete Infrastructure as Code (IaC)
+### 3. 🔧 Automation Scripts Testing & Enhancement (IN PROGRESS)
+**Status:** 🔄 Testing & Enhancement Phase  
+**Priority:** High  
+**Complexity:** Medium  
+**Timeline:** Q4 2025 (Current)  
+**Estimated Time:** 4-6 hours
+
+**Description:**
+Test and enhance the shutdown and startup scripts for cost-saving cluster management. Scripts created but need validation and improvements.
+
+**Current State:**
+- ✅ `scripts/shutdown-cluster.sh` created - Backs up config, scales down apps, deletes node groups
+- ✅ `scripts/startup-cluster.sh` created - Creates nodes, deploys apps, validates health
+- ⚠️ Scripts created but not fully tested in real shutdown/startup scenario
+- ⚠️ May need enhancements based on testing results
+
+**Testing Requirements:**
+1. **Full Shutdown Test:**
+   - Run shutdown script
+   - Verify all resources properly backed up
+   - Verify node groups deleted
+   - Verify cost savings achieved
+   - Document any issues encountered
+
+2. **Full Startup Test:**
+   - Start Jenkins EC2 manually
+   - Run startup script
+   - Verify cluster comes up correctly
+   - Verify all applications deployed
+   - Test application functionality
+   - Measure total recovery time
+
+3. **Enhancement Needs (Post-Testing):**
+   - Add error handling for edge cases
+   - Improve logging and progress feedback
+   - Add validation checkpoints
+   - Optimize timing/waits
+   - Add rollback capability if startup fails
+   - Consider adding pre-flight checks
+
+**Success Criteria:**
+- ✅ Successfully shutdown cluster with zero data loss
+- ✅ Successfully startup cluster with < 20 minutes recovery time
+- ✅ Application fully functional after startup
+- ✅ Cost savings validated (~$10/day)
+- ✅ Scripts production-ready with proper error handling
+
+**Benefits:**
+- 💰 ~$10.40/day cost savings during shutdown periods
+- ⚡ Fast recovery (target: 15-20 minutes automated)
+- 🔄 Repeatable shutdown/startup process
+- 📋 Reduces manual steps and human error
+
+---
+
+### 4. 📦 Separate Backend and Frontend Repositories
+**Status:** 🚀 Planned  
+**Priority:** High  
+**Complexity:** Medium  
+**Timeline:** Q1 2026  
+**Estimated Time:** 3-4 hours
+
+**Description:**
+Create independent repositories for backend and frontend applications instead of monorepo structure.
+
+**Current State:**
+- ❌ Both apps in single repo: `Application-Code/frontend` and `Application-Code/backend`
+- ❌ Tightly coupled in CI/CD pipeline
+- ❌ Cannot version independently
+- ❌ Cannot deploy independently
+
+**Planned Structure:**
+```
+Repos:
+1. three-tier-frontend (independent)
+   - React application
+   - Dockerfile
+   - package.json
+   - Jenkinsfile
+   - README.md
+
+2. three-tier-backend (independent)
+   - Node.js/Express API
+   - Dockerfile
+   - package.json
+   - Jenkinsfile
+   - README.md
+
+3. three-tier-kubernetes (infrastructure)
+   - K8s manifests
+   - ArgoCD apps
+   - Terraform configs
+   - Scripts
+   - Documentation
+```
+
+**Implementation Steps:**
+1. Create new GitHub repositories
+   - `uditmishra03/three-tier-frontend`
+   - `uditmishra03/three-tier-backend`
+   - Rename current to `three-tier-kubernetes` or `three-tier-infra`
+
+2. Migrate code with full Git history
+   ```bash
+   git filter-branch --subdirectory-filter Application-Code/frontend
+   git filter-branch --subdirectory-filter Application-Code/backend
+   ```
+
+3. Update Jenkins pipelines
+   - Separate Jenkins jobs for each repo
+   - Independent build triggers
+   - Separate ECR repositories (already done)
+
+4. Update ArgoCD applications
+   - Point to separate repos
+   - Independent sync policies
+   - Update image updater configs
+
+5. Update documentation
+   - README in each repo
+   - Architecture diagrams
+   - Cross-repo references
+
+**Benefits:**
+- ✅ Independent versioning (semantic versioning per app)
+- ✅ Independent deployment cycles
+- ✅ Smaller, focused repositories
+- ✅ Better separation of concerns
+- ✅ Team can work independently on frontend/backend
+- ✅ Easier to manage CI/CD per application
+- ✅ Professional portfolio structure
+
+**Considerations:**
+- Need to update Jenkins webhook URLs
+- ArgoCD needs repo access to both
+- Documentation split across repos (use cross-references)
+- Kubernetes manifests stay in infra repo
+
+---
+
+### 5. 📋 Complete Infrastructure as Code (IaC) - One-Stop Deployment Solution) - One-Stop Deployment Solution
 **Status:** 🚀 Planned  
 **Priority:** High  
 **Complexity:** High  
 **Timeline:** Q1 2026  
-**Estimated Time:** 8-12 hours
+**Estimated Time:** 12-16 hours
 
 **Description:**
-Convert all manually created AWS resources to Terraform configuration for reproducible infrastructure.
+Create a comprehensive one-stop solution to deploy and bring up the entire infrastructure with a single command. Convert all manually created AWS resources to Terraform for fully automated, reproducible infrastructure.
+
+**Goal:** Run one command → Entire infrastructure ready (EKS, Jenkins, networking, applications, monitoring)
+
+**Vision:**
+```bash
+# Single command to deploy everything
+./deploy-all.sh
+
+# Or with Terraform
+terraform init
+terraform apply -auto-approve
+
+# Result: Complete working DevSecOps environment in 30-45 minutes
+```
 
 **Current State:**
 - ✅ Jenkins EC2 with Terraform (partial)
@@ -134,7 +301,111 @@ terraform/
 
 ---
 
-### 4. 📋 IAM Roles for Service Accounts (IRSA)
+### 6. 📚 Complete Documentation & Portfolio Readiness
+**Status:** 🔄 Ongoing  
+**Priority:** High  
+**Complexity:** Medium  
+**Timeline:** Continuous  
+**Estimated Time:** 6-8 hours (initial completion)
+
+**Description:**
+Complete all documentation to make the project portfolio-ready with clear, comprehensive guides.
+
+**Current State:**
+- ✅ Main DOCUMENTATION.md complete (16 sections)
+- ✅ Infrastructure fixes documented
+- ✅ Post-shutdown recovery checklist created
+- ✅ Future enhancements consolidated
+- ⚠️ Some sections may need updates as project evolves
+- ⚠️ Need to add new features documentation
+
+**Remaining Documentation Work:**
+
+1. **Complete CI/CD Documentation:**
+   - Document ArgoCD Image Updater fix (once completed)
+   - Complete GitOps workflow documentation
+   - Add troubleshooting guide for common CI/CD issues
+   - Document Jenkins pipeline optimization
+
+2. **Architecture Diagrams:**
+   - Current architecture (detailed)
+   - CI/CD pipeline flow
+   - Network architecture
+   - Future architecture (with planned enhancements)
+   - Create diagrams using draw.io or Lucidchart
+
+3. **Runbook/Operations Guide:**
+   - Day-to-day operations
+   - Common maintenance tasks
+   - Troubleshooting decision tree
+   - Incident response procedures
+
+4. **Setup Guide for New Team Members:**
+   - Prerequisites and tools needed
+   - Step-by-step setup instructions
+   - Access requirements
+   - First deployment walkthrough
+
+5. **Testing Documentation:**
+   - Test strategy and coverage
+   - How to run tests locally
+   - CI test automation
+   - Performance testing approach
+
+6. **Security Documentation:**
+   - Security controls implemented
+   - Vulnerability management process
+   - Secrets management approach
+   - Compliance considerations
+
+7. **Cost Management Documentation:**
+   - Current cost breakdown
+   - Cost optimization strategies implemented
+   - Shutdown/startup procedures
+   - Cost monitoring and alerts
+
+8. **Portfolio-Specific Content:**
+   - Project overview for resume/portfolio
+   - Key achievements and metrics
+   - Technologies used and why
+   - Challenges overcome
+   - Demo video script
+
+**Documentation Structure (Target):**
+```
+docs/
+├── README.md (Project overview)
+├── ARCHITECTURE.md (System design)
+├── SETUP-GUIDE.md (Getting started)
+├── CICD-GUIDE.md (Pipeline documentation)
+├── OPERATIONS-GUIDE.md (Day-to-day ops)
+├── TROUBLESHOOTING.md (Common issues)
+├── SECURITY.md (Security practices)
+├── COST-MANAGEMENT.md (Already exists)
+├── TESTING.md (Test strategy)
+├── FUTURE-ENHANCEMENTS.md (Already exists)
+├── CHANGELOG.md (Version history)
+└── diagrams/ (Architecture diagrams)
+```
+
+**Success Criteria:**
+- ✅ Anyone can understand the project without prior knowledge
+- ✅ New team member can set up environment in < 2 hours
+- ✅ All common issues have documented solutions
+- ✅ Portfolio-ready with professional presentation
+- ✅ Clear architecture diagrams for interviews
+- ✅ Comprehensive for resume/LinkedIn showcase
+
+**Benefits:**
+- 📈 Portfolio quality for job applications
+- 🎯 Interview preparation material
+- 👥 Team onboarding efficiency
+- 🔍 Knowledge preservation
+- ✅ Professional credibility
+
+---
+
+### 7. 📋 IAM Roles for Service Accounts (IRSA)
 **Status:** 🚀 Planned  
 **Priority:** High  
 **Complexity:** Medium  
@@ -1121,11 +1392,16 @@ Enhanced network security policies.
 
 ## Quick Reference
 
+### Critical Priority (Immediate - Q4 2025)
+1. 🚨 Fix ArgoCD Image Updater for Backend (BLOCKING)
+2. 🔧 Test & Enhance Automation Scripts (in progress)
+
 ### High Priority (Complete by Q1 2026)
-1. ✅ ArgoCD Image Updater (in progress)
-2. 📋 HTTPS with ACM
-3. 📋 Complete IaC with Terraform
-4. 📋 IRSA for ALB Controller
+3. 🔐 HTTPS Implementation (STRICT requirement - No HTTP)
+4. 📦 Separate Backend/Frontend Repositories
+5. 🏗️ Complete IaC - One-Stop Deployment Solution
+6. 📚 Complete Documentation & Portfolio Readiness
+7. 📋 IRSA for ALB Controller
 
 ### Medium Priority (Complete by Q2 2026)
 5. 📋 Prometheus/Grafana Production Setup
