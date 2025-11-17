@@ -189,61 +189,16 @@ When shutting down AWS infrastructure for cost savings, bringing it back up requ
 
 ## Improved Architecture Recommendations
 
-### 1. **Use Infrastructure as Code (IaC)**
-- **Current:** Manual EC2/EKS configuration via AWS Console
-- **Recommended:** Complete Terraform configuration for all resources
-- **Benefit:** One command to recreate entire infrastructure
-- **Files to create:** 
-  - `eks.tf` (node groups, cluster config)
-  - `jenkins.tf` (EC2, EIP, security groups)
-  - `alb.tf` (ingress controller config)
+Based on the recovery challenges documented above, several architectural improvements have been identified to make future operations more resilient and automated.
 
-### 2. **Persistent Storage for All Stateful Components**
-- **Current:** SonarQube now has persistence; MongoDB using pod storage
-- **Recommended:** 
-  - MongoDB: Use EBS persistent volumes
-  - SonarQube: Consider RDS for production
-  - Jenkins: Move JENKINS_HOME to EBS volume
-- **Benefit:** No data loss across restarts
-
-### 3. **Container Orchestration for Jenkins**
-- **Current:** Jenkins running directly on EC2
-- **Recommended:** Run Jenkins in Kubernetes with StatefulSet
-- **Benefit:** Auto-scaling, better resource utilization, consistent with other apps
-
-### 4. **Automated Health Checks**
-- **Current:** Manual verification after startup
-- **Recommended:** Startup script that validates all services
-- **Benefit:** Catch issues immediately, faster recovery
-
-### 5. **Configuration Management**
-- **Current:** Manual SonarQube webhook/token setup
-- **Recommended:** 
-  - Store configs in Git (excluding secrets)
-  - Use Kubernetes ConfigMaps/Secrets
-  - Automated configuration scripts
-- **Benefit:** One command to restore configurations
-
-### 6. **Monitoring and Alerting**
-- **Current:** Manual checks for service health
-- **Recommended:** 
-  - Prometheus/Grafana for metrics
-  - CloudWatch alarms for critical services
-  - Slack/email notifications for failures
-- **Benefit:** Proactive issue detection
-
-### 7. **IAM Roles for Service Accounts (IRSA)**
-- **Current:** Using IMDSv1 (less secure) for ALB controller
-- **Recommended:** Configure IRSA for ALB Ingress Controller
-- **Benefit:** Better security, proper permissions, no metadata workarounds
-
-### 8. **Cost Optimization Without Full Shutdown**
-- **Current:** Delete resources, face recovery pain
-- **Recommended:** 
-  - Use AWS Instance Scheduler (auto stop/start)
-  - Scale down instead of delete (0 nodes, then scale up)
-  - Use Spot instances for dev/test
-- **Benefit:** Faster recovery, less manual work
+**For detailed implementation plans, priorities, and timelines, see:**
+📋 **[FUTURE-ENHANCEMENTS.md](./FUTURE-ENHANCEMENTS.md)** - Comprehensive roadmap covering:
+- Complete Infrastructure as Code (Terraform)
+- Persistent storage for all stateful components
+- IRSA for enhanced security
+- Automated monitoring and alerting
+- Cost optimization strategies
+- And more...
 
 ---
 
