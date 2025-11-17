@@ -9,7 +9,6 @@ metadata:
     argocd-image-updater.argoproj.io/backend.allow-tags: regexp:^[0-9]+$
     argocd-image-updater.argoproj.io/backend.force-update: "true"
     argocd-image-updater.argoproj.io/write-back-method: argocd
-    argocd-image-updater.argoproj.io/sync-options: "Prune=false"
 spec:
   project: default
   source:
@@ -23,3 +22,10 @@ spec:
     automated:
       prune: true
       selfHeal: true
+    syncOptions:
+    - RespectIgnoreDifferences=true
+  ignoreDifferences:
+  - group: apps
+    kind: Deployment
+    jsonPointers:
+    - /spec/template/spec/containers/0/image
