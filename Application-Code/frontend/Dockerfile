@@ -5,7 +5,7 @@ WORKDIR /app
 ENV CI=true
 ENV NODE_OPTIONS=--openssl-legacy-provider
 COPY package*.json ./
-RUN npm install --no-audit --no-fund
+RUN --mount=type=cache,target=/root/.npm npm ci --prefer-offline --no-audit --no-fund
 COPY . .
 RUN npm run build
 
