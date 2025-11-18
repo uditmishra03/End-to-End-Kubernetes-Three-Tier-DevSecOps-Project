@@ -25,8 +25,8 @@ class App extends Tasks {
                                 onChange={this.handleChange}
                                 placeholder="Add New TO-DO"
                             />
-                            <Button className="add-task-btn" color="primary" variant="outlined" type="submit">
-                                Add Task
+                            <Button className="add-task-btn" color="primary" variant="contained" type="submit">
+                                ADD TASK
                             </Button>
                         </form>
                         <div className="tasks-list">
