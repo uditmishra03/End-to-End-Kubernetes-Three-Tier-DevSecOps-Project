@@ -42,23 +42,23 @@ spec:
               key: password
         ports:
         - containerPort: 3500
-          # livenessProbe:
-          #   httpGet:
-          #     path: /healthz
-          #     port: 3500
-          #   initialDelaySeconds: 2
-          #   periodSeconds: 5
-          # readinessProbe:
-          #   httpGet:
-          #     path: /ready
-          #     port: 3500
-          #   initialDelaySeconds: 5
-          #   periodSeconds: 5
-          #   successThreshold: 1
-          # startupProbe:
-          #   httpGet:
-          #     path: /started
-          #     port: 3500
-          # initialDelaySeconds: 0
-          # periodSeconds: 10
-          # failureThreshold: 30
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 3500
+          initialDelaySeconds: 15
+          periodSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 3500
+          initialDelaySeconds: 20
+          periodSeconds: 5
+          successThreshold: 1
+        startupProbe:
+          httpGet:
+            path: /started
+            port: 3500
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          failureThreshold: 30
