@@ -3,9 +3,28 @@
 ## Overview
 This document consolidates all planned enhancements, improvements, and future scope for the Kubernetes Three-Tier DevSecOps Project. It serves as a single source of truth for upcoming work and project evolution.
 
-**Last Updated:** November 17, 2025  
+**Last Updated:** November 19, 2025  
 **Status:** Active Planning Document  
 **Priority Order:** High → Medium → Low (Top to Bottom)
+
+---
+
+## Enhancements Summary
+
+| Enhancement                                                    | Status                          | Priority      |
+| -------------------------------------------------------------- | ------------------------------- | ------------- |
+| Optimized Docker Builds for Frontend & Backend                 | ✅ Completed                    | High          |
+| ArgoCD Image Auto-Deployment for Backend                       | ✅ Completed                    | Critical      |
+| HTTPS Implementation - STRICTLY Required (No HTTP)             | 🚀 Planned                      | Critical/High |
+| Automation Scripts Testing & Enhancement                       | 🔄 Testing & Enhancement Phase  | High          |
+| Separate Backend and Frontend Repositories (Phased Approach)   | 🚀 Planned                      | High          |
+| Complete Infrastructure as Code (IaC)                          | 🚀 Planned                      | High          |
+| Complete Documentation & Portfolio Readiness                   | 🔄 Ongoing                      | High          |
+| IAM Roles for Service Accounts (IRSA)                          | 🚀 Planned                      | High          |
+| Prometheus & Grafana Production Setup                          | 🚀 Planned                      | Medium        |
+| Jenkins Pipeline Enhancements                                  | 🚀 Planned                      | Medium        |
+| Persistent Storage for Stateful Components                     | 🚀 Planned                      | Medium        |
+| Automated SonarQube Data Backup                                | 🚀 Planned                      | Medium        |
 
 ---
 
@@ -25,69 +44,37 @@ This document consolidates all planned enhancements, improvements, and future sc
 
 ## High Priority Enhancements
 
-### 1. ⚡ Optimize Frontend Docker Build Performance
-**Status:** 🟡 Planned  
+### 1. ✅ [FIXED] Optimized Docker Builds for Frontend & Backend
+**Status:** ✅ **Completed** (November 19, 2025)  
 **Priority:** High  
-**Complexity:** Low-Medium  
-**Timeline:** Q4 2025  
-**Impact:** 50-70% build time reduction (from ~2.5min to ~1min)
+**Impact:** Achieved a **~70-80% reduction** in Docker build times for both frontend and backend applications, significantly speeding up the CI/CD pipeline. Build times were reduced from over 2.5 minutes to under 40 seconds.
 
-**Description:**
-Frontend Docker image builds have significantly increased to ~2.5 minutes. Multiple optimization opportunities identified to reduce build time and improve CI/CD pipeline efficiency.
+#### **Problem Summary:**
+The Docker image build process for both frontend and backend applications was slow and inefficient, taking several minutes to complete. This was primarily due to a lack of caching for dependencies (`node_modules`) and large, unoptimized build contexts.
 
-**Root Causes:**
-- Multi-platform builds (linux/amd64 + linux/arm64) doubles build time
-- No Docker layer caching between builds
-- Buildx cross-platform emulation overhead
-- npm install runs without cache utilization
+#### **Solution Implemented:**
+A series of optimizations were applied to the `Dockerfile` and build process for both applications, transforming them into efficient, secure, and fast multi-stage builds.
 
-**Recommended Solutions:**
+**Key Optimizations Applied:**
 
-**Quick Win (40-50% improvement):**
-- Remove ARM64 platform from builds (use only `linux/amd64`)
-  ```groovy
-  # Change in jenkinsfile_frontend_mbp:
-  sh 'docker buildx build --platform linux/amd64 -t ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER} --push .'
-  ```
+1.  **Multi-Stage Builds:**
+    *   A `builder` stage was introduced to compile/build the application and install all dependencies.
+    *   A lean final `production` stage copies only the necessary build artifacts and production `node_modules`, resulting in smaller and more secure final images.
 
-**High Impact Optimizations:**
-1. Implement Docker BuildKit cache mounts for node_modules:
-   ```dockerfile
-   RUN --mount=type=cache,target=/root/.npm \
-       npm ci --prefer-offline --no-audit --no-fund
-   ```
+2.  **BuildKit Cache Mounts:**
+    *   The `npm` cache directory was mounted during the build using `RUN --mount=type=cache,target=/root/.npm`.
+    *   This allows `npm install` or `npm ci` to reuse cached packages across builds, dramatically reducing dependency installation time.
 
-2. Add `.dockerignore` to exclude unnecessary files:
-   ```
-   node_modules
-   .git
-   .gitignore
-   *.md
-   .env
-   coverage
-   .vscode
-   ```
+3.  **.dockerignore Files:**
+    *   Comprehensive `.dockerignore` files were added for both frontend and backend to exclude unnecessary files and directories (e.g., `.git`, `node_modules`, `.vscode`, markdown files) from the Docker build context. This reduces the context size and prevents unnecessary cache invalidation.
 
-3. Use `npm ci` instead of `npm install` for faster, deterministic builds
+4.  **Backend-Specific Enhancements:**
+    *   **Alpine Base Image:** Switched to `node:18-alpine` for the final stage, a much smaller and more secure base image.
+    *   **Non-Root User:** A dedicated `appuser` was created and is used to run the application, adhering to the principle of least privilege.
+    *   **Production Dependencies Only:** Used `npm ci --omit=dev` to ensure only production dependencies are installed in the final image.
 
-4. Enable Jenkins Docker layer caching or use external cache storage
-
-**Medium Impact Optimizations:**
-- Pin exact npm/node versions in package.json
-- Pre-pull base images on Jenkins agents
-- Parallelize npm install with multiple workers
-
-**Estimated Results:**
-- Current: ~2.5 minutes
-- After quick win: ~1.5 minutes (40% improvement)
-- After all optimizations: ~45-60 seconds (60-75% improvement)
-
-**Implementation Priority:**
-1. Remove ARM64 platform (immediate, no risk)
-2. Add .dockerignore file (5 min task)
-3. Switch to npm ci (test first)
-4. Implement BuildKit cache mounts
-5. Configure Jenkins layer caching
+**Outcome:**
+These changes have made the Docker build process significantly faster and more robust. The smaller final images also improve security and reduce storage costs in the container registry (ECR).
 
 ---
 
@@ -129,7 +116,7 @@ With these two fixes, the end-to-end continuous deployment workflow for the back
 
 ---
 
-### 2. 🔐 HTTPS Implementation - STRICTLY Required (No HTTP)
+### 3. 🔐 HTTPS Implementation - STRICTLY Required (No HTTP)
 **Status:** 🚀 Planned  
 **Priority:** Critical/High  
 **Complexity:** Medium  
@@ -168,7 +155,7 @@ Secure application with HTTPS using AWS Certificate Manager (ACM) and custom dom
 
 ---
 
-### 3. 🔧 Automation Scripts Testing & Enhancement (IN PROGRESS)
+### 4. 🔧 Automation Scripts Testing & Enhancement (IN PROGRESS)
 **Status:** 🔄 Testing & Enhancement Phase  
 **Priority:** High  
 **Complexity:** Medium  
@@ -223,88 +210,47 @@ Test and enhance the shutdown and startup scripts for cost-saving cluster manage
 
 ---
 
-### 4. 📦 Separate Backend and Frontend Repositories
+### 5. 📦 Separate Backend and Frontend Repositories (Phased Approach)
 **Status:** 🚀 Planned  
 **Priority:** High  
 **Complexity:** Medium  
 **Timeline:** Q1 2026  
-**Estimated Time:** 3-4 hours
 
 **Description:**
-Create independent repositories for backend and frontend applications instead of monorepo structure.
+Transition from the current monorepo to a true microservices architecture by separating the frontend and backend applications into their own dedicated repositories. This will be done in a phased approach to minimize risk and validate each step. The primary goal is to ensure a code change in one service only triggers its own CI/CD pipeline.
 
-**Current State:**
-- ❌ Both apps in single repo: `Application-Code/frontend` and `Application-Code/backend`
-- ❌ Tightly coupled in CI/CD pipeline
-- ❌ Cannot version independently
-- ❌ Cannot deploy independently
+---
+#### **Phase 1: Decouple Frontend Application**
 
-**Planned Structure:**
-```
-Repos:
-1. three-tier-frontend (independent)
-   - React application
-   - Dockerfile
-   - package.json
-   - Jenkinsfile
-   - README.md
-
-2. three-tier-backend (independent)
-   - Node.js/Express API
-   - Dockerfile
-   - package.json
-   - Jenkinsfile
-   - README.md
-
-3. three-tier-kubernetes (infrastructure)
-   - K8s manifests
-   - ArgoCD apps
-   - Terraform configs
-   - Scripts
-   - Documentation
-```
+**Goal:** Move the frontend application to its own repository and ensure its CI/CD pipeline and deployment work independently, without affecting or being affected by the backend.
 
 **Implementation Steps:**
-1. Create new GitHub repositories
-   - `uditmishra03/three-tier-frontend`
-   - `uditmishra03/three-tier-backend`
-   - Rename current to `three-tier-kubernetes` or `three-tier-infra`
+1.  **Create New `three-tier-frontend` Repository:** A new, dedicated repository will be created on GitHub.
+2.  **Migrate Frontend Code:** The contents of `Application-Code/frontend` will be migrated to the new repository, preserving the full Git commit history.
+3.  **Create Standalone Frontend Pipeline:**
+    *   The `jenkinsfile_frontend_mbp` will be moved into the new repository (as `Jenkinsfile`).
+    *   A new Jenkins job will be created, pointing to the `three-tier-frontend` repository and configured with a dedicated webhook.
+4.  **Update ArgoCD Configuration:** The `argocd-apps/frontend-app.yaml` will be updated to point its `spec.source.repoURL` to the new `three-tier-frontend` repository.
+5.  **Verify End-to-End Flow:** A change will be pushed to the new frontend repository to trigger the new, independent pipeline. We will verify that the new image is built, pushed, and automatically deployed by Argo CD without triggering the backend pipeline.
+6.  **Clean Up Monorepo:** Once the independent frontend workflow is fully validated, the `Application-Code/frontend` directory and the old Jenkins job will be removed from the original repository.
 
-2. Migrate code with full Git history
-   ```bash
-   git filter-branch --subdirectory-filter Application-Code/frontend
-   git filter-branch --subdirectory-filter Application-Code/backend
-   ```
+---
+#### **Phase 2: Decouple Backend Application**
 
-3. Update Jenkins pipelines
-   - Separate Jenkins jobs for each repo
-   - Independent build triggers
-   - Separate ECR repositories (already done)
+**Goal:** After the frontend is successfully decoupled, repeat the process for the backend application.
 
-4. Update ArgoCD applications
-   - Point to separate repos
-   - Independent sync policies
-   - Update image updater configs
+**Implementation Steps:**
+1.  **Create New `three-tier-backend` Repository:** A new repository will be created for the backend code.
+2.  **Migrate Backend Code:** The contents of `Application-Code/backend` will be migrated to the new repository with full commit history.
+3.  **Create Standalone Backend Pipeline:** The Jenkins pipeline and job will be updated to use the new `three-tier-backend` repository.
+4.  **Update ArgoCD Configuration:** The `argocd-apps/backend-app.yaml` will be updated to point to the new backend repository.
+5.  **Verify and Clean Up:** The independent backend workflow will be tested and validated, after which the `Application-Code/backend` directory will be removed from the original repository.
+6.  **Rename Infrastructure Repo:** The original repository, now containing only infrastructure and configuration code, will be renamed to `three-tier-infrastructure` to clearly reflect its purpose.
 
-5. Update documentation
-   - README in each repo
-   - Architecture diagrams
-   - Cross-repo references
+---
+#### **Future Consideration: Decouple Database Lifecycle**
 
-**Benefits:**
-- ✅ Independent versioning (semantic versioning per app)
-- ✅ Independent deployment cycles
-- ✅ Smaller, focused repositories
-- ✅ Better separation of concerns
-- ✅ Team can work independently on frontend/backend
-- ✅ Easier to manage CI/CD per application
-- ✅ Professional portfolio structure
-
-**Considerations:**
-- Need to update Jenkins webhook URLs
-- ArgoCD needs repo access to both
-- Documentation split across repos (use cross-references)
-- Kubernetes manifests stay in infra repo
+A key observation is the tight coupling between the backend application and the database deployment. A future enhancement will be to manage the database as a completely separate entity in Argo CD. This will ensure that updates to the backend application do not affect the database's lifecycle, preventing accidental redeployments or data loss, and aligning with best practices for stateful services.
 
 ---
 
