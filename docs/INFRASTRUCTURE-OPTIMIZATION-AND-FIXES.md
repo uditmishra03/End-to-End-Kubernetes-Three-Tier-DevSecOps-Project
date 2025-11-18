@@ -3,22 +3,98 @@
 ## Document Overview
 This document captures the significant infrastructure changes, performance optimizations, and critical issue resolutions implemented to stabilize and optimize the Kubernetes Three-Tier DevSecOps project.
 
-**Date:** November 17, 2025  
+**Date:** November 18, 2025  
 **Status:** ✅ All Issues Resolved
 
 ---
 
 ## Table of Contents
-1. [Jenkins Instance Upgrade](#1-jenkins-instance-upgrade)
-2. [Jenkins JVM Configuration Optimization](#2-jenkins-jvm-configuration-optimization)
-3. [SonarQube Persistent Storage Implementation](#3-sonarqube-persistent-storage-implementation)
-4. [SonarQube Docker Restart Policy](#4-sonarqube-docker-restart-policy)
-5. [ALB Health Check Configuration Fix](#5-alb-health-check-configuration-fix)
-6. [504 Gateway Timeout Resolution](#6-504-gateway-timeout-resolution)
+1. [Frontend Runtime Configuration Fix](#1-frontend-runtime-configuration-fix)
+2. [Jenkins Instance Upgrade](#2-jenkins-instance-upgrade)
+3. [Jenkins JVM Configuration Optimization](#3-jenkins-jvm-configuration-optimization)
+4. [SonarQube Persistent Storage Implementation](#4-sonarqube-persistent-storage-implementation)
+5. [SonarQube Docker Restart Policy](#5-sonarqube-docker-restart-policy)
+6. [ALB Health Check Configuration Fix](#6-alb-health-check-configuration-fix)
+7. [504 Gateway Timeout Resolution](#7-504-gateway-timeout-resolution)
 
 ---
 
-## 1. Jenkins Instance Upgrade
+## 1. Frontend Runtime Configuration Fix
+
+### Problem
+The "Add Task" button in the React frontend application was non-functional. Users could not create new tasks despite the UI appearing operational. The issue persisted across multiple frontend image versions, indicating a configuration rather than code problem.
+
+### Root Cause
+**React environment variables (`REACT_APP_*`) are only available at build time, not runtime.**
+
+The frontend was configured with `REACT_APP_BACKEND_URL` in the Kubernetes deployment, but this value was never injected into the built JavaScript bundle. React replaces `process.env.REACT_APP_*` variables during the `npm run build` step, so runtime environment variables have no effect.
+
+**Symptoms:**
+- Frontend attempted to call `http://localhost:8080/api/tasks` (fallback hardcoded value)
+- CORS errors in browser console
+- Backend received zero traffic from frontend
+- POST requests failed with network errors
+
+### Solution Implemented
+**Created runtime configuration injection system using `env-config.js`**
+
+**Implementation:**
+1. **Modified `entrypoint.sh`** to generate `env-config.js` at container startup:
+   ```sh
+   cat > /usr/share/nginx/html/env-config.js << 'EOF'
+   window._env_ = {
+     REACT_APP_BACKEND_URL: "BACKEND_URL_PLACEHOLDER"
+   };
+   EOF
+   sed -i "s|BACKEND_URL_PLACEHOLDER|${REACT_APP_BACKEND_URL}|g" /usr/share/nginx/html/env-config.js
+   ```
+
+2. **Updated `public/index.html`** to load config before React bundle:
+   ```html
+   <script src="%PUBLIC_URL%/env-config.js"></script>
+   ```
+
+3. **Modified `taskServices.js`** to use runtime config:
+   ```javascript
+   const apiUrl = (window._env_ && window._env_.REACT_APP_BACKEND_URL) 
+                  || process.env.REACT_APP_BACKEND_URL 
+                  || "http://localhost:8080/api/tasks";
+   ```
+
+4. **Fixed Ingress path configuration**:
+   - Reverted from `/api/*` with `ImplementationSpecific` to `/api` with `Prefix`
+   - The wildcard path was causing ALB to return 406 errors on POST requests
+
+**Results:**
+- ✅ Frontend correctly calls AWS Load Balancer URL
+- ✅ "Add Task" functionality fully operational
+- ✅ All CRUD operations (Create, Read, Update, Delete) working
+- ✅ Backend receiving and processing requests successfully
+- ✅ No CORS errors
+
+**Performance Bonus:**
+- Removed ARM64 platform from Docker builds
+- Build time reduced from ~2.5 minutes to ~1.5 minutes (40% improvement)
+- Builds now target only `linux/amd64` since EKS cluster runs on AMD64 instances
+
+**Files Modified:**
+- `Application-Code/frontend/entrypoint.sh`
+- `Application-Code/frontend/public/index.html`
+- `Application-Code/frontend/src/services/taskServices.js`
+- `Application-Code/frontend/src/Tasks.js`
+- `Application-Code/frontend/Dockerfile`
+- `Kubernetes-Manifests-file/ingress.yaml`
+- `Jenkins-Pipeline-Code/jenkinsfile_frontend_mbp`
+
+**Key Learnings:**
+- React environment variables must be injected at build time or via runtime configuration files
+- Kubernetes deployment environment variables don't automatically propagate to React apps
+- Runtime configuration requires explicit injection before the React bundle loads
+- ALB ingress path types (`Prefix` vs `ImplementationSpecific`) can affect HTTP method routing
+
+---
+
+## 2. Jenkins Instance Upgrade
 
 ### Problem
 Jenkins server (t2.2xlarge) was experiencing performance issues during concurrent builds, particularly when running SonarQube analysis alongside Docker image builds.
