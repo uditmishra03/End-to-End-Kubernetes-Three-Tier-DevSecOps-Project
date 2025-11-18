@@ -27,8 +27,7 @@ class Tasks extends Component {
         const originalTasks = this.state.tasks;
         try {
             const { data } = await addTask({ task: this.state.currentTask });
-            const tasks = originalTasks;
-            tasks.push(data);
+            const tasks = [...originalTasks, data];
             this.setState({ tasks, currentTask: "" });
         } catch (error) {
             console.log(error);
