@@ -5,6 +5,16 @@ data "aws_iam_openid_connect_provider" "eks_oidc_provider" {
   url = "https://oidc.eks.us-east-1.amazonaws.com/id/7D4C17F23AC420CA9AA2FE47EBEF25B1"
 }
 
+import {
+  to = aws_iam_policy.argocd_image_updater_ecr_policy
+  id = "arn:aws:iam::296062548155:policy/ArgoCDImageUpdaterECRAccess"
+}
+
+import {
+  to = aws_iam_role.argocd_image_updater_role
+  id = "ArgoCDImageUpdaterRole"
+}
+
 resource "aws_iam_policy" "argocd_image_updater_ecr_policy" {
   name        = "ArgoCDImageUpdaterECRAccess"
   description = "Allows ArgoCD Image Updater to access ECR for pulling image tags."
