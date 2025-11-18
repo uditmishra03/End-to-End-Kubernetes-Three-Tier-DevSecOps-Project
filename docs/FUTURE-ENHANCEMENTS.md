@@ -91,41 +91,41 @@ Frontend Docker image builds have significantly increased to ~2.5 minutes. Multi
 
 ---
 
-### 2. 🚨 Fix ArgoCD Image Updater for Backend Application (CRITICAL)
-**Status:** 🔴 BLOCKING - In Progress  
-**Priority:** Critical/High  
-**Complexity:** Medium  
-**Timeline:** Immediate (Q4 2025)
+### 2. ✅ [FIXED] ArgoCD Image Auto-Deployment for Backend
+**Status:** ✅ **Completed** (November 18, 2025)  
+**Priority:** Critical  
+**Impact:** Unblocked the entire CI/CD pipeline for the backend application, enabling fully automated, zero-touch deployments.
 
-**Description:**
-Fix the ArgoCD Image Updater issue specifically for the backend application to complete the end-to-end CI/CD pipeline. Currently blocking automated deployments.
+#### **Problem Summary:**
+The backend application was not automatically deploying new images despite the CI pipeline successfully building and pushing them to ECR. The ArgoCD Image Updater logs showed it was detecting the new image tags (e.g., `61`, `62`, `63`), but the live `Deployment` in the Kubernetes cluster remained stuck on an old tag (e.g., `52`).
 
-**Current Issue:**
-- Frontend image updater working correctly
-- Backend application image updater not functioning
-- CI/CD pipeline incomplete - manual intervention required
-- Blocks the goal: "Push code → Automatic deployment"
+#### **Root Cause Analysis & Resolution:**
 
-**Goal:**
-Complete CI/CD pipeline where each code push to applications triggers automatic deployment without manual steps.
+The issue was caused by a combination of two factors that created a deadlock:
 
-**Current Status:**
-- ✅ ArgoCD Image Updater v0.12.2 installed
-- ✅ Kustomize configuration complete
-- ✅ ECR authentication configured
-- ✅ Frontend working
-- ❌ Backend application needs fix
+1.  **Failing Health Probes:** The primary issue was that newer versions of the backend application were taking longer to start up. This caused them to fail their `livenessProbe`, `readinessProbe`, and `startupProbe`. When Kubernetes tried to perform a rolling update, the new pods never became "Ready," causing Kubernetes to halt the update to prevent downtime, leaving the old, stable pods running.
 
-**Remaining Work:**
-- 🔴 Debug backend image updater configuration
-- 🔴 Test backend automatic deployment
-- ✅ Validate end-to-end workflow (frontend + backend)
-- 📝 Document complete CI/CD flow
+2.  **Incorrect ArgoCD `ignoreDifferences` Configuration:** A secondary, critical misconfiguration was found in the `argocd-apps/backend-app.yaml`. The `Application` was configured to ignore changes to the `image` field of the deployment:
+    ```yaml
+    ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+      - /spec/template/spec/containers/0/image
+    ```
+    This setting told Argo CD to consider the application as `Synced` even when the desired image tag in its spec was different from the live image tag in the cluster. As a result, Argo CD never initiated an automatic sync to correct the difference.
 
-**Success Criteria:**
-- Push to backend code → Jenkins build → ECR push → ArgoCD auto-sync → Deployment updated
-- Zero manual intervention required
-- Both frontend and backend auto-deploying
+#### **Solution Steps:**
+
+1.  **Removed `ignoreDifferences`:** The `ignoreDifferences` block was removed from `argocd-apps/backend-app.yaml`. This allowed Argo CD to correctly identify when the live deployment's image was out of date and automatically trigger a sync.
+
+2.  **Adjusted Health Probe Timings:** The probes in `Kubernetes-Manifests-file/Backend/deployment.yaml` were re-enabled but with more generous `initialDelaySeconds` to give the application sufficient time to initialize before being checked.
+    *   **startupProbe:** `initialDelaySeconds` set to `30`.
+    *   **readinessProbe:** `initialDelaySeconds` set to `20`.
+    *   **livenessProbe:** `initialDelaySeconds` set to `15`.
+
+**Outcome:**
+With these two fixes, the end-to-end continuous deployment workflow for the backend is now fully functional and robust. New images pushed to ECR are automatically detected and safely rolled out with proper health checking.
 
 ---
 
