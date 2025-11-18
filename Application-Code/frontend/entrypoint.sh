@@ -1,8 +1,12 @@
 #!/bin/sh
 # Entrypoint script to inject runtime configuration
 
-# Replace placeholder with actual environment variable value
-sed -i "s|__REACT_APP_BACKEND_URL__|${REACT_APP_BACKEND_URL}|g" /usr/share/nginx/html/config.js
+# Create config.js with the actual environment variable value
+cat > /usr/share/nginx/html/config.js << EOF
+window.ENV = {
+  REACT_APP_BACKEND_URL: "${REACT_APP_BACKEND_URL}"
+};
+EOF
 
 # Start nginx
 exec nginx -g "daemon off;"
