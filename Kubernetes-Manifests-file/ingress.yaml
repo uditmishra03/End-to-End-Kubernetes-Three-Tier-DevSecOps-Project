@@ -20,8 +20,8 @@ spec:
   rules:
   - http:
       paths:
-      - path: /api/*
-        pathType: ImplementationSpecific
+      - path: /api
+        pathType: Prefix
         backend:
           service:
             name: api
