@@ -1,105 +1,51 @@
-.app {
+.App {
     text-align: center;
-    background-color: #E9B63B;
-    min-height: 100vh;
+    background: linear-gradient(to left, rgb(25, 110, 121), rgb(70, 224, 228));
+    height: 100vh;
     display: flex;
-    flex-direction: column;
+    justify-content: center;
     align-items: center;
-    font-size: calc(10px + 2vmin);
-    color: white;
-    padding-top: 0;
 }
 
-.app-header {
-    background-color: #2c3e50;
-    padding: 25px 40px;
-    width: 100%;
-    margin-bottom: 40px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    position: sticky;
-    top: 0;
-    z-index: 100;
-}
-
-.app-header h1 {
-    margin: 0;
-    font-size: 2.5rem;
-    color: #61dafb;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-.main-content {
-    width: 100%;
-    max-width: 600px;
-    margin-top: 20px;
-}
-
-.todo-container {
-    padding: 30px;
+.container {
+    width: 50%;
+    padding: 20px;
     border-radius: 15px;
-    background-color: white;
-    color: #333;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
-.task-form {
-    display: flex;
-    gap: 15px;
-    margin-bottom: 30px;
-}
-
-.task-input {
-    flex: 1;
-}
-
-.add-task-btn {
-    min-width: 120px;
-    font-weight: 600;
-}
-
-.tasks-list {
-    margin-top: 20px;
-}
-
-.task-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+.heading {
+    text-align: center;
+    font-size: 30px;
+    font-weight: 200;
+    letter-spacing: 3px;
     padding: 10px;
-    margin-bottom: 10px;
-    border-radius: 5px;
-    transition: background-color 0.3s;
+    background-color: #282c34;
+    color: white;
+    border-radius: 10px;
+    margin-bottom: 20px;
 }
 
-.task-item:hover {
-    background-color: #f9f9f9;
+.flex {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
-.task-text {
+.task_container {
+    margin-top: 20px;
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.task {
     flex-grow: 1;
     text-align: left;
     margin-left: 10px;
+    font-size: 18px;
 }
 
-.task-text.completed {
+.line_through {
     text-decoration: line-through;
     color: #888;
-}
-
-.delete-task-btn {
-    margin-left: 10px;
-}
-
-.version-footer {
-    position: fixed;
-    bottom: 10px;
-    right: 10px;
-    color: #888;
-    font-size: 0.8rem;
-}
-
-.timestamp {
-    font-size: 0.8rem;
-    color: #888;
-    margin-left: 15px;
 }
