@@ -348,6 +348,52 @@ else
     fi
 fi
 
+################################################################################
+# Step 6.5: Configure ArgoCD Image Updater with IRSA
+################################################################################
+print_header "Step 6.5: Configuring ArgoCD Image Updater"
+
+# Check if ArgoCD namespace exists
+if kubectl get namespace argocd &> /dev/null; then
+    echo "ArgoCD namespace found, applying IRSA configuration..."
+    
+    # Get the absolute path to the argocd-image-updater-config directory
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+    ARGOCD_CONFIG_DIR="$PROJECT_ROOT/argocd-image-updater-config"
+    
+    if [[ -f "$ARGOCD_CONFIG_DIR/bootstrap-irsa.sh" ]]; then
+        echo "Running ArgoCD Image Updater bootstrap script..."
+        cd "$ARGOCD_CONFIG_DIR"
+        chmod +x bootstrap-irsa.sh
+        ./bootstrap-irsa.sh
+        cd - > /dev/null
+        print_success "ArgoCD Image Updater configured with IRSA for ECR authentication"
+    else
+        print_warning "Bootstrap script not found. Applying manifests manually..."
+        
+        if [[ -f "$ARGOCD_CONFIG_DIR/serviceaccount.yaml" ]]; then
+            kubectl apply -f "$ARGOCD_CONFIG_DIR/serviceaccount.yaml"
+        fi
+        
+        if [[ -f "$ARGOCD_CONFIG_DIR/ecr-credentials-helper.yaml" ]]; then
+            kubectl apply -f "$ARGOCD_CONFIG_DIR/ecr-credentials-helper.yaml"
+        fi
+        
+        if [[ -f "$ARGOCD_CONFIG_DIR/registries-configmap.yaml" ]]; then
+            kubectl apply -f "$ARGOCD_CONFIG_DIR/registries-configmap.yaml"
+        fi
+        
+        # Configure deployment
+        kubectl set env deployment/argocd-image-updater -n argocd AWS_REGION=us-east-1 2>/dev/null || true
+        kubectl rollout restart deployment/argocd-image-updater -n argocd 2>/dev/null || true
+        
+        print_success "ArgoCD Image Updater configuration applied"
+    fi
+else
+    print_warning "ArgoCD namespace not found. Skipping Image Updater configuration."
+fi
+
 # Wait for pods to be ready
 echo ""
 echo "Waiting for pods to be ready..."
