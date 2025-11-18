@@ -1,19 +1,21 @@
 #!/bin/sh
-# Entrypoint script to inject runtime configuration
+set -e
 
-echo "Injecting backend URL: ${REACT_APP_BACKEND_URL}"
+echo "Creating runtime config..."
+echo "Backend URL: ${REACT_APP_BACKEND_URL}"
 
-# Inject runtime config by replacing the empty script tag
-sed -i "s|<script id=\"runtime-config\"></script>|<script id=\"runtime-config\">window.ENV={REACT_APP_BACKEND_URL:\"${REACT_APP_BACKEND_URL}\"}</script>|g" /usr/share/nginx/html/index.html
+# Create config.js in the nginx html directory  
+cat > /usr/share/nginx/html/env-config.js << 'EOF'
+window._env_ = {
+  REACT_APP_BACKEND_URL: "BACKEND_URL_PLACEHOLDER"
+};
+EOF
 
-# Verify injection worked
-if grep -q "window.ENV" /usr/share/nginx/html/index.html; then
-    echo "✓ Config injection successful"
-    grep "window.ENV" /usr/share/nginx/html/index.html
-else
-    echo "✗ Config injection failed - check logs"
-    cat /usr/share/nginx/html/index.html | grep -A 2 -B 2 "runtime-config" || echo "runtime-config tag not found"
-fi
+# Replace placeholder with actual value
+sed -i "s|BACKEND_URL_PLACEHOLDER|${REACT_APP_BACKEND_URL}|g" /usr/share/nginx/html/env-config.js
+
+echo "Config created successfully:"
+cat /usr/share/nginx/html/env-config.js
 
 # Start nginx
 exec nginx -g "daemon off;"
