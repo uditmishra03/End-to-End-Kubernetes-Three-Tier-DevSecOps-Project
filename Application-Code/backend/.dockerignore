@@ -37,3 +37,12 @@ yarn-error.log
 .DS_Store
 Thumbs.db
 *.lock
+
+# Other
+.git
+.gitignore
+*.md
+.env
+coverage
+dist
+build
