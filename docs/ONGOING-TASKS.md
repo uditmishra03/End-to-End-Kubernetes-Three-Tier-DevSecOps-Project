@@ -117,7 +117,7 @@
 **Completed:** Nov 15, 2025
 - Webhook configured for automated builds
 - Triggers working on every push
-- URL: `http://54.164.105.186:8080/github-webhook/`
+- URL: `http://3.227.140.48:8080/github-webhook/`
 
 ### 6. **Application Accessibility**
 **Completed:** Nov 15, 2025
@@ -169,7 +169,7 @@
 
 **Jenkins:**
 - Version: 2.536
-- Instance: t2.2xlarge @ 54.164.105.186:8080
+- Instance: c6a.2xlarge @ 3.227.140.48:8080 (Static Elastic IP)
 - Pipeline Type: Multibranch (migrated from standard)
 
 **Repositories:**
