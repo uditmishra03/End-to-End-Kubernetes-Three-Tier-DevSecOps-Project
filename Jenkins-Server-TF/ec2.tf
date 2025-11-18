@@ -1,10 +1,3 @@
-resource "aws_eip" "jenkins_eip" {
-  domain = "vpc"
-  tags = {
-    Name = "Jenkins-EIP"
-  }
-}
-
 resource "aws_instance" "ec2" {
   ami                    = data.aws_ami.ami.image_id
   instance_type          = "c6a.2xlarge"
@@ -24,5 +17,5 @@ resource "aws_instance" "ec2" {
 
 resource "aws_eip_association" "eip_assoc" {
   instance_id   = aws_instance.ec2.id
-  allocation_id = aws_eip.jenkins_eip.id
+  allocation_id = "eipalloc-0db2aba87e747816b"
 }
