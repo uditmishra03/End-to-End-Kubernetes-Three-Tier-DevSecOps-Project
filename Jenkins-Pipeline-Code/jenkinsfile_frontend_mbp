@@ -70,7 +70,7 @@ pipeline {
                                 docker buildx use mybuilder
                             fi
                         '''
-                        sh 'docker buildx build --platform linux/amd64,linux/arm64 -t ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER} --push .'
+                        sh 'docker buildx build --platform linux/amd64 -t ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER} --push .'
                     }
                 }
             }

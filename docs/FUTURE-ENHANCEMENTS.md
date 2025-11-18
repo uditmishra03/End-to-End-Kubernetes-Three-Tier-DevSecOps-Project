@@ -25,7 +25,73 @@ This document consolidates all planned enhancements, improvements, and future sc
 
 ## High Priority Enhancements
 
-### 1. 🚨 Fix ArgoCD Image Updater for Backend Application (CRITICAL)
+### 1. ⚡ Optimize Frontend Docker Build Performance
+**Status:** 🟡 Planned  
+**Priority:** High  
+**Complexity:** Low-Medium  
+**Timeline:** Q4 2025  
+**Impact:** 50-70% build time reduction (from ~2.5min to ~1min)
+
+**Description:**
+Frontend Docker image builds have significantly increased to ~2.5 minutes. Multiple optimization opportunities identified to reduce build time and improve CI/CD pipeline efficiency.
+
+**Root Causes:**
+- Multi-platform builds (linux/amd64 + linux/arm64) doubles build time
+- No Docker layer caching between builds
+- Buildx cross-platform emulation overhead
+- npm install runs without cache utilization
+
+**Recommended Solutions:**
+
+**Quick Win (40-50% improvement):**
+- Remove ARM64 platform from builds (use only `linux/amd64`)
+  ```groovy
+  # Change in jenkinsfile_frontend_mbp:
+  sh 'docker buildx build --platform linux/amd64 -t ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER} --push .'
+  ```
+
+**High Impact Optimizations:**
+1. Implement Docker BuildKit cache mounts for node_modules:
+   ```dockerfile
+   RUN --mount=type=cache,target=/root/.npm \
+       npm ci --prefer-offline --no-audit --no-fund
+   ```
+
+2. Add `.dockerignore` to exclude unnecessary files:
+   ```
+   node_modules
+   .git
+   .gitignore
+   *.md
+   .env
+   coverage
+   .vscode
+   ```
+
+3. Use `npm ci` instead of `npm install` for faster, deterministic builds
+
+4. Enable Jenkins Docker layer caching or use external cache storage
+
+**Medium Impact Optimizations:**
+- Pin exact npm/node versions in package.json
+- Pre-pull base images on Jenkins agents
+- Parallelize npm install with multiple workers
+
+**Estimated Results:**
+- Current: ~2.5 minutes
+- After quick win: ~1.5 minutes (40% improvement)
+- After all optimizations: ~45-60 seconds (60-75% improvement)
+
+**Implementation Priority:**
+1. Remove ARM64 platform (immediate, no risk)
+2. Add .dockerignore file (5 min task)
+3. Switch to npm ci (test first)
+4. Implement BuildKit cache mounts
+5. Configure Jenkins layer caching
+
+---
+
+### 2. 🚨 Fix ArgoCD Image Updater for Backend Application (CRITICAL)
 **Status:** 🔴 BLOCKING - In Progress  
 **Priority:** Critical/High  
 **Complexity:** Medium  
