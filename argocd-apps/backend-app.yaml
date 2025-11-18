@@ -24,8 +24,3 @@ spec:
       selfHeal: true
     syncOptions:
     - RespectIgnoreDifferences=true
-  ignoreDifferences:
-  - group: apps
-    kind: Deployment
-    jsonPointers:
-    - /spec/template/spec/containers/0/image
