@@ -4,8 +4,6 @@ import { Paper, TextField, Checkbox, Button } from "@material-ui/core";
 import "./App.css";
 
 class App extends Tasks {
-    state = { tasks: [], currentTask: "" };
-
     render() {
         const { tasks, currentTask } = this.state;
         return (
