@@ -1,69 +1,99 @@
 .app {
+    text-align: center;
+    background-color: #f5f5f5;
+    min-height: 100vh;
     display: flex;
     flex-direction: column;
-    height: 100vh;
+    align-items: center;
+    justify-content: center;
+    font-size: calc(10px + 2vmin);
+    color: white;
+    padding: 20px;
 }
 
 .app-header {
     background-color: #282c34;
-    color: white;
-    padding: 10px 20px;
-    text-align: center;
-    font-size: 1.5rem;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.app-header h1 {
+    margin: 0;
+    font-size: 2.5rem;
+    color: #61dafb;
 }
 
 .main-content {
-    flex-grow: 1;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 20px;
+    width: 100%;
+    max-width: 600px;
 }
 
 .todo-container {
-    width: 100%;
-    max-width: 600px;
     padding: 20px;
+    border-radius: 10px;
+    background-color: white;
+    color: #333;
 }
 
 .task-form {
     display: flex;
-    gap: 10px;
+    justify-content: space-between;
     margin-bottom: 20px;
 }
 
 .task-input {
-    flex-grow: 1;
+    width: 70%;
 }
 
-.add-task-btn, .delete-task-btn {
-    flex-shrink: 0;
-    box-shadow: 0px 2px 5px rgba(0,0,0,0.2);
-    transition: transform 0.1s ease-in-out;
-}
-
-.add-task-btn:hover, .delete-task-btn:hover {
-    transform: scale(1.05);
+.add-task-btn {
+    width: 25%;
 }
 
 .tasks-list {
-    margin-top: 10px;
+    margin-top: 20px;
 }
 
 .task-item {
     display: flex;
     align-items: center;
-    margin-top: 10px;
+    justify-content: space-between;
     padding: 10px;
-    box-shadow: 0px 2px 5px rgba(0,0,0,0.1);
+    margin-bottom: 10px;
+    border-radius: 5px;
+    transition: background-color 0.3s;
+}
+
+.task-item:hover {
+    background-color: #f9f9f9;
 }
 
 .task-text {
     flex-grow: 1;
-    margin: 0 10px;
+    text-align: left;
+    margin-left: 10px;
 }
 
 .task-text.completed {
     text-decoration: line-through;
+    color: #888;
 }
 
+.delete-task-btn {
+    margin-left: 10px;
+}
+
+.version-footer {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    color: #888;
+    font-size: 0.8rem;
+}
+
+.timestamp {
+    font-size: 0.8rem;
+    color: #888;
+    margin-left: 15px;
+}

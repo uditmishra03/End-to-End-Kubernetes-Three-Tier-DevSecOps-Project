@@ -1,7 +1,7 @@
 import React from "react";
 import Tasks from "./Tasks";
 import { Paper, TextField, Checkbox, Button } from "@material-ui/core";
-import "./App.css"; // Update your CSS file accordingly   
+import "./App.css";
 
 class App extends Tasks {
     state = { tasks: [], currentTask: "" };
@@ -39,6 +39,9 @@ class App extends Tasks {
                                     />
                                     <div className={task.completed ? "task-text completed" : "task-text"}>
                                         {task.task}
+                                        <div className="timestamp">
+                                            {task.createdAt ? new Date(task.createdAt).toLocaleString() : ''}
+                                        </div>
                                     </div>
                                     <Button onClick={() => this.handleDelete(task._id)} color="secondary" className="delete-task-btn">
                                         Delete
@@ -47,6 +50,9 @@ class App extends Tasks {
                             ))}
                         </div>
                     </Paper>
+                </div>
+                <div className="version-footer">
+                    {process.env.REACT_APP_VERSION || "v1.0.0"}
                 </div>
             </div>
         );
