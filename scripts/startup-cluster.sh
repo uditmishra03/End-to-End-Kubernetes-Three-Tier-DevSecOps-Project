@@ -41,6 +41,8 @@ ALB_URL=""
 MAX_RETRIES=30
 RETRY_INTERVAL=10
 START_TIME=$(date +%s)
+S3_BUCKET="three-tier-k8s-backups"
+BACKUP_DIR=""
 
 echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}   Kubernetes Cluster Startup Script${NC}"
@@ -156,9 +158,73 @@ JENKINS_IP=$(aws ec2 describe-instances --instance-ids "$JENKINS_INSTANCE_ID" --
 echo "Jenkins IP: $JENKINS_IP"
 
 ################################################################################
-# Step 2: Verify Jenkins and SonarQube Services
+# Step 2: Download Backup from S3 (if not available locally)
 ################################################################################
-print_header "Step 2: Verifying Jenkins and SonarQube Services"
+print_header "Step 2: Checking for Backup Configuration"
+
+# Check if local backup exists
+LOCAL_BACKUP=$(find . -maxdepth 1 -type d -name "cluster-backup-*" -printf "%T@ %p\n" 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
+
+if [[ -n "$LOCAL_BACKUP" && -d "$LOCAL_BACKUP" ]]; then
+    print_success "Found local backup: $LOCAL_BACKUP"
+    BACKUP_DIR="$LOCAL_BACKUP"
+else
+    print_warning "No local backup found. Attempting to download from S3..."
+    
+    # Get the latest backup from S3
+    LATEST_BACKUP_KEY=$(aws s3 cp "s3://${S3_BUCKET}/backups/latest-backup.txt" - --region "$REGION" 2>/dev/null || echo "")
+    
+    if [[ -z "$LATEST_BACKUP_KEY" ]]; then
+        print_warning "No backup reference found in S3. Checking for latest backup..."
+        LATEST_BACKUP_KEY=$(aws s3 ls "s3://${S3_BUCKET}/backups/" --region "$REGION" | grep "cluster-backup-" | sort -r | head -1 | awk '{print $4}')
+        if [[ -n "$LATEST_BACKUP_KEY" ]]; then
+            LATEST_BACKUP_KEY="backups/$LATEST_BACKUP_KEY"
+        fi
+    fi
+    
+    if [[ -z "$LATEST_BACKUP_KEY" ]]; then
+        print_warning "No backup found in S3. Will proceed with manual configuration."
+        print_warning "You may need to manually provide subnet IDs and IAM role ARN."
+        BACKUP_DIR=""
+    else
+        echo "Downloading backup from S3: s3://${S3_BUCKET}/${LATEST_BACKUP_KEY}"
+        
+        # Download the backup
+        TEMP_BACKUP="/tmp/$(basename $LATEST_BACKUP_KEY)"
+        aws s3 cp "s3://${S3_BUCKET}/${LATEST_BACKUP_KEY}" "$TEMP_BACKUP" --region "$REGION" 2>/dev/null || {
+            print_error "Failed to download backup from S3"
+            BACKUP_DIR=""
+        }
+        
+        if [[ -f "$TEMP_BACKUP" ]]; then
+            # Extract the backup
+            echo "Extracting backup..."
+            tar -xzf "$TEMP_BACKUP" -C "." 2>/dev/null || {
+                print_error "Failed to extract backup"
+                rm -f "$TEMP_BACKUP"
+                BACKUP_DIR=""
+            }
+            
+            # Find the extracted directory
+            BACKUP_DIR=$(find . -maxdepth 1 -type d -name "cluster-backup-*" -printf "%T@ %p\n" 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
+            
+            if [[ -n "$BACKUP_DIR" && -d "$BACKUP_DIR" ]]; then
+                print_success "Backup downloaded and extracted: $BACKUP_DIR"
+            else
+                print_error "Backup extraction failed"
+                BACKUP_DIR=""
+            fi
+            
+            # Clean up temp file
+            rm -f "$TEMP_BACKUP"
+        fi
+    fi
+fi
+
+################################################################################
+# Step 3: Verify Jenkins and SonarQube Services
+################################################################################
+print_header "Step 3: Verifying Jenkins and SonarQube Services"
 
 # Check Jenkins
 echo "Checking Jenkins UI (http://$JENKINS_IP:8080)..."
@@ -186,9 +252,9 @@ else
 fi
 
 ################################################################################
-# Step 3: Get EKS Cluster Information
+# Step 4: Get EKS Cluster Information
 ################################################################################
-print_header "Step 3: Retrieving EKS Cluster Information"
+print_header "Step 4: Retrieving EKS Cluster Information"
 
 # Update kubeconfig
 echo "Updating kubeconfig..."
@@ -228,10 +294,10 @@ SUBNET_IDS=$(aws eks describe-cluster --name "$EKS_CLUSTER_NAME" --region "$REGI
 echo "Subnets: $SUBNET_IDS"
 
 ################################################################################
-# Step 4: Create EKS Node Group
+# Step 5: Create EKS Node Group
 ################################################################################
 if [[ "$SKIP_NODEGROUP_CREATION" == false ]]; then
-    print_header "Step 4: Creating EKS Node Group"
+    print_header "Step 5: Creating EKS Node Group"
     
     echo "Node group configuration:"
     echo "  Name: $NODEGROUP_NAME"
@@ -281,14 +347,14 @@ if [[ "$SKIP_NODEGROUP_CREATION" == false ]]; then
         print_warning "No node instances found yet"
     fi
 else
-    print_header "Step 4: Using Existing Node Group"
+    print_header "Step 5: Using Existing Node Group"
     print_warning "Skipping node group creation - using existing: $NODEGROUP_NAME"
 fi
 
 ################################################################################
-# Step 5: Wait for Nodes to be Ready
+# Step 6: Wait for Nodes to be Ready
 ################################################################################
-print_header "Step 5: Waiting for Kubernetes Nodes"
+print_header "Step 6: Waiting for Kubernetes Nodes"
 
 echo "Waiting for nodes to be Ready..."
 RETRY_COUNT=0
@@ -311,9 +377,9 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
 done
 
 ################################################################################
-# Step 6: Verify/Deploy Applications
+# Step 7: Verify/Deploy Applications
 ################################################################################
-print_header "Step 6: Verifying Application Deployments"
+print_header "Step 7: Verifying Application Deployments"
 
 # Check if namespace exists
 if ! kubectl get namespace three-tier &> /dev/null; then
@@ -349,9 +415,9 @@ else
 fi
 
 ################################################################################
-# Step 6.5: Configure ArgoCD Image Updater with IRSA
+# Step 7.5: Configure ArgoCD Image Updater with IRSA
 ################################################################################
-print_header "Step 6.5: Configuring ArgoCD Image Updater"
+print_header "Step 7.5: Configuring ArgoCD Image Updater"
 
 # Check if ArgoCD namespace exists
 if kubectl get namespace argocd &> /dev/null; then
@@ -422,9 +488,9 @@ while [ $RETRY_COUNT -lt 20 ]; do
 done
 
 ################################################################################
-# Step 7: Verify ALB Ingress Controller
+# Step 8: Verify ALB Ingress Controller
 ################################################################################
-print_header "Step 7: Verifying ALB Ingress Controller"
+print_header "Step 8: Verifying ALB Ingress Controller"
 
 # Check if ALB controller is running
 ALB_CONTROLLER_POD=$(kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-load-balancer-controller \
@@ -451,9 +517,9 @@ if [ -f "Kubernetes-Manifests-file/ingress.yaml" ]; then
 fi
 
 ################################################################################
-# Step 8: Check ALB and Target Health
+# Step 9: Check ALB and Target Health
 ################################################################################
-print_header "Step 8: Verifying ALB and Target Health"
+print_header "Step 9: Verifying ALB and Target Health"
 
 # Get ALB URL from ingress
 echo "Retrieving ALB information..."
@@ -526,9 +592,9 @@ else
 fi
 
 ################################################################################
-# Step 9: Test Application Endpoints
+# Step 10: Test Application Endpoints
 ################################################################################
-print_header "Step 9: Testing Application Endpoints"
+print_header "Step 10: Testing Application Endpoints"
 
 if [[ -n "$ALB_URL" ]]; then
     echo "Testing frontend endpoint..."
@@ -557,9 +623,9 @@ else
 fi
 
 ################################################################################
-# Step 10: Generate Startup Report
+# Step 11: Generate Startup Report
 ################################################################################
-print_header "Step 10: Generating Startup Report"
+print_header "Step 11: Generating Startup Report"
 
 REPORT_FILE="startup-report-$(date +%Y%m%d-%H%M%S).txt"
 

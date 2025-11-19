@@ -31,6 +31,8 @@ NC='\033[0m' # No Color
 EKS_CLUSTER_NAME="Three-Tier-K8s-EKS-Cluster"
 REGION="us-east-1"
 BACKUP_DIR="./cluster-backup-$(date +%Y%m%d-%H%M%S)"
+S3_BUCKET="three-tier-k8s-backups"
+S3_BACKUP_KEY="backups/cluster-backup-$(date +%Y%m%d-%H%M%S).tar.gz"
 
 echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}   Kubernetes Cluster Shutdown Script${NC}"
@@ -265,6 +267,39 @@ cat "$BACKUP_DIR/shutdown-report.txt"
 print_success "Shutdown report saved to: $BACKUP_DIR/shutdown-report.txt"
 
 ################################################################################
+# Step 7: Upload Backup to S3
+################################################################################
+print_header "Step 7: Uploading Backup to S3"
+
+echo "Compressing backup directory..."
+tar -czf "/tmp/$(basename $S3_BACKUP_KEY)" -C "$(dirname $BACKUP_DIR)" "$(basename $BACKUP_DIR)" 2>/dev/null || {
+    print_error "Failed to compress backup directory"
+    exit 1
+}
+print_success "Backup compressed"
+
+echo "Uploading backup to S3..."
+aws s3 cp "/tmp/$(basename $S3_BACKUP_KEY)" "s3://${S3_BUCKET}/${S3_BACKUP_KEY}" --region "$REGION" 2>/dev/null || {
+    print_error "Failed to upload backup to S3"
+    print_warning "Local backup still available at: $BACKUP_DIR"
+    rm -f "/tmp/$(basename $S3_BACKUP_KEY)"
+    exit 1
+}
+print_success "Backup uploaded to s3://${S3_BUCKET}/${S3_BACKUP_KEY}"
+
+# Clean up local compressed file
+rm -f "/tmp/$(basename $S3_BACKUP_KEY)"
+
+# Also upload the latest backup reference
+echo "$S3_BACKUP_KEY" > "/tmp/latest-backup.txt"
+aws s3 cp "/tmp/latest-backup.txt" "s3://${S3_BUCKET}/backups/latest-backup.txt" --region "$REGION" 2>/dev/null || true
+rm -f "/tmp/latest-backup.txt"
+
+print_success "S3 backup complete"
+echo "Local backup: $BACKUP_DIR"
+echo "S3 backup: s3://${S3_BUCKET}/${S3_BACKUP_KEY}"
+
+################################################################################
 # Summary
 ################################################################################
 echo ""
@@ -274,7 +309,9 @@ echo -e "${GREEN}========================================${NC}"
 echo ""
 echo "Summary:"
 echo "  ✓ Node groups deleted"
-echo "  ✓ Cluster configuration backed up to: $BACKUP_DIR"
+echo "  ✓ Cluster configuration backed up"
+echo "  ✓ Backup uploaded to S3: s3://${S3_BUCKET}/${S3_BACKUP_KEY}"
+echo "  ✓ Local backup: $BACKUP_DIR"
 echo "  ⚠ Jenkins instance still running (manual stop required)"
 echo ""
 echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
