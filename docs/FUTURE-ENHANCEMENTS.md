@@ -16,7 +16,7 @@ This document consolidates all planned enhancements, improvements, and future sc
 | Optimized Docker Builds for Frontend & Backend                 | ✅ Completed                    | High          |
 | ArgoCD Image Auto-Deployment for Backend                       | ✅ Completed                    | Critical      |
 | S3 Backup Integration for Cluster Configuration                | ✅ Completed                    | High          |
-| HTTPS Implementation - STRICTLY Required (No HTTP)             | 🚀 Planned                      | Critical/High |
+| HTTPS Implementation                                           | 🚀 Planned                      | Medium        |
 | Automation Scripts Testing & Enhancement                       | 🔄 Testing & Enhancement Phase  | High          |
 | Separate Backend and Frontend Repositories (Phased Approach)   | 🚀 Planned                      | High          |
 | Complete Infrastructure as Code (IaC)                          | 🚀 Planned                      | High          |
@@ -118,16 +118,14 @@ With these two fixes, the end-to-end continuous deployment workflow for the back
 
 ---
 
-### 3. 🔐 HTTPS Implementation - STRICTLY Required (No HTTP)
+### 3. 🔐 HTTPS Implementation
 **Status:** 🚀 Planned  
-**Priority:** Critical/High  
+**Priority:** Medium  
 **Complexity:** Medium  
-**Timeline:** Q4 2025 / Q1 2026  
+**Timeline:** Q2 2026  
 **Estimated Time:** 2-3 hours
 
 **Description:**
-⚠️ **STRICT REQUIREMENT:** Application endpoint MUST use HTTPS only. HTTP access will be disabled.
-
 Secure application with HTTPS using AWS Certificate Manager (ACM) and custom domain.
 
 **Implementation Steps:**
@@ -1630,22 +1628,22 @@ Enhanced network security policies.
 2. 🔧 Test & Enhance Automation Scripts (in progress)
 
 ### High Priority (Complete by Q1 2026)
-3. 🔐 HTTPS Implementation (STRICT requirement - No HTTP)
-4. 📦 Separate Backend/Frontend Repositories
-5. 🏗️ Complete IaC - One-Stop Deployment Solution
-6. 📚 Complete Documentation & Portfolio Readiness
-7. 📋 IRSA for ALB Controller
+3. 📦 Separate Backend/Frontend Repositories
+4. 🏗️ Complete IaC - One-Stop Deployment Solution
+5. 📚 Complete Documentation & Portfolio Readiness
+6. 📋 IRSA for ALB Controller
 
 ### Medium Priority (Complete by Q2 2026)
-5. 📋 Prometheus/Grafana Production Setup
-6. 📋 Jenkins Pipeline Enhancements
-7. 📋 Persistent Storage (MongoDB EBS)
+7. 🔐 HTTPS Implementation
+8. 📋 Prometheus/Grafana Production Setup
+9. 📋 Jenkins Pipeline Enhancements
+10. 📋 Persistent Storage (MongoDB EBS)
 8. 📋 Automated SonarQube Backup
 
 ### Quick Wins (< 4 hours)
-- HTTPS with ACM (2-3 hours)
 - Automated SonarQube Backup (2-3 hours)
 - IRSA for ALB Controller (3-4 hours)
+- HTTPS with ACM (2-3 hours)
 
 ### Major Projects (> 8 hours)
 - Complete IaC (8-12 hours)
