@@ -3,7 +3,7 @@
 ## Overview
 This document consolidates all planned enhancements, improvements, and future scope for the Kubernetes Three-Tier DevSecOps Project. It serves as a single source of truth for upcoming work and project evolution.
 
-**Last Updated:** November 19, 2025  
+**Last Updated:** November 20, 2025  
 **Status:** Active Planning Document  
 **Priority Order:** High → Medium → Low (Top to Bottom)
 
@@ -16,9 +16,9 @@ This document consolidates all planned enhancements, improvements, and future sc
 | Optimized Docker Builds for Frontend & Backend                 | ✅ Completed                    | High          |
 | ArgoCD Image Auto-Deployment for Backend                       | ✅ Completed                    | Critical      |
 | S3 Backup Integration for Cluster Configuration                | ✅ Completed                    | High          |
+| Separate Backend and Frontend Repositories (Phased Approach)   | 🔄 Phase 1 ✅, Phase 2 🚀       | High          |
 | HTTPS Implementation                                           | 🚀 Planned                      | Medium        |
 | Automation Scripts Testing & Enhancement                       | 🔄 Testing & Enhancement Phase  | High          |
-| Separate Backend and Frontend Repositories (Phased Approach)   | 🚀 Planned                      | High          |
 | Complete Infrastructure as Code (IaC)                          | 🚀 Planned                      | High          |
 | Complete Documentation & Portfolio Readiness                   | 🔄 Ongoing                      | High          |
 | IAM Roles for Service Accounts (IRSA)                          | 🚀 Planned                      | High          |
@@ -211,7 +211,7 @@ Test and enhance the shutdown and startup scripts for cost-saving cluster manage
 ---
 
 ### 5. 📦 Separate Backend and Frontend Repositories (Phased Approach)
-**Status:** 🚀 Planned  
+**Status:** 🔄 Phase 1 Completed, Phase 2 Planned  
 **Priority:** High  
 **Complexity:** Medium  
 **Timeline:** Q1 2026  
@@ -220,32 +220,83 @@ Test and enhance the shutdown and startup scripts for cost-saving cluster manage
 Transition from the current monorepo to a true microservices architecture by separating the frontend and backend applications into their own dedicated repositories. This will be done in a phased approach to minimize risk and validate each step. The primary goal is to ensure a code change in one service only triggers its own CI/CD pipeline.
 
 ---
-#### **Phase 1: Decouple Frontend Application**
+#### **Phase 1: Decouple Frontend Application** ✅ **COMPLETED** (November 20, 2025)
 
 **Goal:** Move the frontend application to its own repository and ensure its CI/CD pipeline and deployment work independently, without affecting or being affected by the backend.
 
 **Implementation Steps:**
-1.  **Create New `three-tier-frontend` Repository:** A new, dedicated repository will be created on GitHub.
-2.  **Migrate Frontend Code:** The contents of `Application-Code/frontend` will be migrated to the new repository, preserving the full Git commit history.
-3.  **Create Standalone Frontend Pipeline:**
-    *   The `jenkinsfile_frontend_mbp` will be moved into the new repository (as `Jenkinsfile`).
-    *   A new Jenkins job will be created, pointing to the `three-tier-frontend` repository and configured with a dedicated webhook.
-4.  **Update ArgoCD Configuration:** The `argocd-apps/frontend-app.yaml` will be updated to point its `spec.source.repoURL` to the new `three-tier-frontend` repository.
-5.  **Verify End-to-End Flow:** A change will be pushed to the new frontend repository to trigger the new, independent pipeline. We will verify that the new image is built, pushed, and automatically deployed by Argo CD without triggering the backend pipeline.
-6.  **Clean Up Monorepo:** Once the independent frontend workflow is fully validated, the `Application-Code/frontend` directory and the old Jenkins job will be removed from the original repository.
+1.  ✅ **Created New `three-tier-fe` Repository:** New dedicated repository created at `https://github.com/uditmishra03/three-tier-fe.git`
+2.  ✅ **Migrated Frontend Code:** Complete migration of `Application-Code/frontend` to new repository including:
+    - All frontend source code (`src/`, `public/`)
+    - Dockerfile and Docker configuration
+    - nginx configuration
+    - package.json and dependencies
+3.  ✅ **Created Standalone Frontend Pipeline:**
+    - Moved and adapted Jenkinsfile to new repository root
+    - Configured Jenkins Multibranch Pipeline job: `MBP_Three-Tier-fe_MBP`
+    - Set up GitHub webhook with token: `frontend-webhook-token`
+    - Fixed pipeline issues (removed redundant git checkout, corrected paths)
+    - Implemented workspace cleanup in `post` block
+4.  ✅ **Implemented Date-Based Image Tagging:**
+    - Changed from sequential BUILD_NUMBER to semantic date-based tags
+    - Format: `YYYYMMDD-BUILD` (e.g., `20241120-5`)
+    - Benefits: Human-readable, scalable, always increasing
+    - More professional than epoch timestamps
+5.  ✅ **Updated ArgoCD Configuration:**
+    - Updated `argocd-apps/frontend-app.yaml` to point to new repository
+    - Changed `targetRevision` from `HEAD` to `master` branch
+    - Fixed image tag regex from `^[0-9]+$` to `^[0-9-]+$` to support date-based format
+    - Verified ArgoCD Image Updater successfully detects and deploys new images
+6.  ✅ **Verified End-to-End Flow:**
+    - Tested complete CI/CD pipeline: code push → Jenkins build → ECR push → ArgoCD deployment
+    - Successfully deployed image `frontend:20241119-5` from new repository
+    - Confirmed frontend changes don't trigger backend pipeline (true decoupling)
+7.  ✅ **Enhanced UI Design:**
+    - Modernized frontend with minimalistic, appealing design
+    - Implemented purple gradient theme and glass-morphism effects
+    - Added custom checkbox styling and smooth animations
+    - Improved mobile responsiveness
+8.  ✅ **Cleaned Up Monorepo:**
+    - Removed `Application-Code/frontend/` directory (17 files)
+    - Removed `Kubernetes-Manifests-file/Frontend/` manifests (2 files)
+    - Removed old Jenkinsfiles: `jenkinsfile_frontend_mbp`, `Jenkinsfile-Frontend`
+    - Total cleanup: 21 files removed from main repository
+    - Committed with: "chore: Remove frontend code after migration to three-tier-fe repository"
+
+**Key Achievements:**
+- 🎯 **True Microservices Architecture:** Frontend now has completely independent CI/CD pipeline
+- 🚀 **Improved Developer Experience:** Frontend developers can work without affecting backend
+- 📊 **Better Tagging Strategy:** Date-based tags are readable and scalable
+- 🎨 **Enhanced UI:** Modern, professional frontend design
+- ✅ **Zero Downtime Migration:** Seamless transition with no service interruption
+- 📦 **Cleaner Repository Structure:** Main repo no longer cluttered with frontend code
+
+**Lessons Learned:**
+- ArgoCD Image Updater requires careful regex configuration for custom tag formats
+- Multibranch Pipelines auto-checkout, so explicit git checkout stage is redundant
+- `cleanWs()` in post block is better practice than at pipeline start
+- Date-based tagging (YYYYMMDD-BUILD) provides better balance than pure epoch timestamps
 
 ---
-#### **Phase 2: Decouple Backend Application**
+#### **Phase 2: Decouple Backend Application** 🚀 **PLANNED** (Scheduled: Tomorrow)
 
 **Goal:** After the frontend is successfully decoupled, repeat the process for the backend application.
 
 **Implementation Steps:**
-1.  **Create New `three-tier-backend` Repository:** A new repository will be created for the backend code.
-2.  **Migrate Backend Code:** The contents of `Application-Code/backend` will be migrated to the new repository with full commit history.
-3.  **Create Standalone Backend Pipeline:** The Jenkins pipeline and job will be updated to use the new `three-tier-backend` repository.
-4.  **Update ArgoCD Configuration:** The `argocd-apps/backend-app.yaml` will be updated to point to the new backend repository.
-5.  **Verify and Clean Up:** The independent backend workflow will be tested and validated, after which the `Application-Code/backend` directory will be removed from the original repository.
-6.  **Rename Infrastructure Repo:** The original repository, now containing only infrastructure and configuration code, will be renamed to `three-tier-infrastructure` to clearly reflect its purpose.
+1.  🚀 **Create New `three-tier-backend` Repository:** New repository will be created for the backend code
+2.  🚀 **Migrate Backend Code:** Contents of `Application-Code/backend` will be migrated with full commit history
+3.  🚀 **Create Standalone Backend Pipeline:** Jenkins pipeline will be configured for new repository
+4.  🚀 **Implement Date-Based Tagging:** Apply same `YYYYMMDD-BUILD` format for consistency
+5.  🚀 **Update ArgoCD Configuration:** `argocd-apps/backend-app.yaml` will point to new backend repository
+6.  🚀 **Update Backend Tag Regex:** Similar to frontend, update allow-tags pattern to support date format
+7.  🚀 **Verify and Clean Up:** Test independent backend workflow and remove from main repo
+8.  🚀 **Rename Infrastructure Repo:** Original repository will be renamed to `three-tier-infrastructure`
+
+**Preparation Complete:**
+- ✅ Validated approach with successful frontend migration
+- ✅ Documented process and lessons learned
+- ✅ Identified all backend-specific files for migration
+- ✅ Ready to replicate process tomorrow
 
 ---
 #### **Future Consideration: Decouple Database Lifecycle**
