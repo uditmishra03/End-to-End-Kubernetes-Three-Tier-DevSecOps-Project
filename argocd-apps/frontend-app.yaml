@@ -12,8 +12,8 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/uditmishra03/End-to-End-Kubernetes-Three-Tier-DevSecOps-Project.git
-    targetRevision: HEAD
+    repoURL: https://github.com/uditmishra03/three-tier-fe.git
+    targetRevision: master
     path: Kubernetes-Manifests-file/Frontend
   destination:
     server: https://kubernetes.default.svc
