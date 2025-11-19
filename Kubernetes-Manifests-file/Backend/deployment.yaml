@@ -8,6 +8,7 @@ metadata:
     env: demo
 spec:
   replicas: 2
+  revisionHistoryLimit: 5
   strategy:
     type: RollingUpdate
     rollingUpdate:
