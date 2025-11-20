@@ -7,6 +7,8 @@ This document consolidates all planned enhancements, improvements, and future sc
 **Status:** Active Planning Document  
 **Priority Order:** High → Medium → Low (Top to Bottom)
 
+> **📁 Related Documentation:** Detailed troubleshooting and fix guides are available in the [`fixes/`](./fixes/) directory. Each completed enhancement references its corresponding fix guide for implementation details.
+
 ---
 
 ## Enhancements Summary
@@ -79,6 +81,8 @@ A series of optimizations were applied to the `Dockerfile` and build process for
 **Outcome:**
 These changes have made the Docker build process significantly faster and more robust. The smaller final images also improve security and reduce storage costs in the container registry (ECR).
 
+**Detailed Fix Documentation:** See [fixes/JENKINS-PERFORMANCE-FIX.md](./fixes/JENKINS-PERFORMANCE-FIX.md) for complete troubleshooting steps and implementation details.
+
 ---
 
 ### 2. ✅ [FIXED] ArgoCD Image Auto-Deployment for Backend
@@ -117,6 +121,8 @@ The issue was caused by a combination of two factors that created a deadlock:
 **Outcome:**
 With these two fixes, the end-to-end continuous deployment workflow for the backend is now fully functional and robust. New images pushed to ECR are automatically detected and safely rolled out with proper health checking.
 
+**Detailed Fix Documentation:** See [fixes/INFRASTRUCTURE-OPTIMIZATION-AND-FIXES.md](./fixes/INFRASTRUCTURE-OPTIMIZATION-AND-FIXES.md) for complete troubleshooting steps and probe configuration details.
+
 ---
 
 ### 3. 🔐 HTTPS Implementation
@@ -152,7 +158,7 @@ Secure application with HTTPS using AWS Certificate Manager (ACM) and custom dom
 
 **Cost Impact:** ~$12-15/year (domain name only, ACM certificate is free)
 
-**Reference:** Section in INFRASTRUCTURE-OPTIMIZATION-AND-FIXES.md
+**Detailed Fix Documentation:** See [fixes/INFRASTRUCTURE-OPTIMIZATION-AND-FIXES.md](./fixes/INFRASTRUCTURE-OPTIMIZATION-AND-FIXES.md) for infrastructure optimization details.
 
 ---
 
@@ -277,6 +283,10 @@ Transition from the current monorepo to a true microservices architecture by sep
 - Multibranch Pipelines auto-checkout, so explicit git checkout stage is redundant
 - `cleanWs()` in post block is better practice than at pipeline start
 - Date-based tagging (YYYYMMDD-BUILD) provides better balance than pure epoch timestamps
+
+**Detailed Fix Documentation:** 
+- [fixes/JENKINS-MBP-WEBHOOK-FIX.md](./fixes/JENKINS-MBP-WEBHOOK-FIX.md) - Webhook configuration and MBP setup
+- [fixes/SONARQUBE-FIX-GUIDE.md](./fixes/SONARQUBE-FIX-GUIDE.md) - SonarQube integration fixes
 
 ---
 #### **Phase 2: Decouple Backend Application** 🚀 **PLANNED** (Scheduled: Tomorrow)
@@ -404,6 +414,8 @@ terraform/
 - ✅ Team collaboration on infrastructure changes
 
 **Dependencies:** None
+
+**Detailed Fix Documentation:** See [fixes/NODE-GROUP-RECREATION-GUIDE.md](./fixes/NODE-GROUP-RECREATION-GUIDE.md) for manual node group recreation procedures (until IaC is complete).
 
 **Reference:** POST-SHUTDOWN-RECOVERY-CHECKLIST.md - Architecture Recommendation #1
 

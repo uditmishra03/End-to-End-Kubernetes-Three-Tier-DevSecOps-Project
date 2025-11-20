@@ -12,7 +12,67 @@ Welcome to the Three-Tier Web Application Deployment project! 🚀
 
 This repository hosts the implementation of a Three-Tier Web App using ReactJS, NodeJS, and MongoDB, deployed on AWS EKS. The project covers a wide range of tools and practices for a robust and scalable DevOps setup.
 
+## 🏗️ Architecture Overview
+
+This project has evolved from a **monolithic architecture** to a **microservices architecture** for better scalability, independent deployments, and improved developer experience.
+
+### Repository Structure (Microservices)
+
+📦 **Infrastructure Repository (This repo):**
+- AWS Infrastructure (Terraform, EKS, Jenkins)
+- Kubernetes Manifests
+- ArgoCD GitOps Configuration
+- CI/CD Pipeline Scripts
+- Monitoring & Observability Setup
+
+🎨 **Frontend Microservice:**
+- Repository: [three-tier-fe](https://github.com/uditmishra03/three-tier-fe)
+- Technology: ReactJS, Nginx
+- Independent CI/CD Pipeline
+- Dedicated ECR Repository
+
+⚙️ **Backend Microservice:**
+- Repository: [three-tier-be](https://github.com/uditmishra03/three-tier-be)
+- Technology: NodeJS, Express, MongoDB
+- Independent CI/CD Pipeline
+- Dedicated ECR Repository
+
+### Benefits of Microservices Architecture:
+- ✅ Independent deployment cycles for frontend and backend
+- ✅ Isolated CI/CD pipelines - changes in one service don't trigger builds in others
+- ✅ Better scalability and resource management
+- ✅ Improved developer experience and team autonomy
+- ✅ Easier debugging and maintenance
+
+### High-Level Architecture Flow:
+
+```
+Developer Code Push
+        │
+        ├─► GitHub (three-tier-fe) ──► Jenkins Pipeline ──► ECR (frontend) ──┐
+        ├─► GitHub (three-tier-be) ──► Jenkins Pipeline ──► ECR (backend)  ──┤
+        │                                                                      │
+        └─► GitHub (Infrastructure) ──► ArgoCD ◄─── Image Updater ◄──────────┘
+                                          │
+                                          │ GitOps Deployment
+                                          ▼
+                                    AWS EKS Cluster
+                                          │
+                        ┌─────────────────┼─────────────────┐
+                        ▼                 ▼                 ▼
+                  Frontend Pods     Backend Pods     MongoDB Pods
+                  (React/Nginx)     (Node/Express)   (Database)
+                        │                 │                 │
+                        └────────► ALB Ingress ◄───────────┘
+                                          │
+                                          ▼
+                                    End Users
+
+    Monitoring: Prometheus + Grafana ──► All Pods & Services
+```
+
 ## Table of Contents
+- [Architecture Overview](#️-architecture-overview)
 - [Application Code](#application-code)
 - [Jenkins Pipeline Code](#jenkins-pipeline-code)
 - [Jenkins Server Terraform](#jenkins-server-terraform)
@@ -20,7 +80,12 @@ This repository hosts the implementation of a Three-Tier Web App using ReactJS, 
 - [Project Details](#project-details)
 
 ## Application Code
-The `Application-Code` directory contains the source code for the Three-Tier Web Application. Dive into this directory to explore the frontend and backend implementations.
+**Note:** The application code has been migrated to separate microservice repositories for independent development and deployment:
+
+- **Frontend Application:** [three-tier-fe](https://github.com/uditmishra03/three-tier-fe) - ReactJS application with Nginx
+- **Backend Application:** [three-tier-be](https://github.com/uditmishra03/three-tier-be) - NodeJS/Express API with MongoDB
+
+This repository now focuses on infrastructure, CI/CD pipelines, and GitOps configurations.
 
 ## Jenkins Pipeline Code
 In the `Jenkins-Pipeline-Code` directory, you'll find Jenkins pipeline scripts. These scripts automate the CI/CD process, ensuring smooth integration and deployment of your application.

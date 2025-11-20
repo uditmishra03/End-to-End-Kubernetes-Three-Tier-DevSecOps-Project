@@ -3,9 +3,48 @@
 ## Complete Implementation Guide
 
 **Version:** 1.0  
-**Last Updated:** November 15, 2025  
+**Last Updated:** November 20, 2025  
 **Project Owner:** uditmishra03  
 **Repository:** [End-to-End-Kubernetes-Three-Tier-DevSecOps-Project](https://github.com/uditmishra03/End-to-End-Kubernetes-Three-Tier-DevSecOps-Project)
+
+---
+
+## 🏗️ Repository Architecture
+
+This project follows a **microservices architecture** with separate repositories for each service:
+
+### Infrastructure Repository (This Repository)
+**[End-to-End-Kubernetes-Three-Tier-DevSecOps-Project](https://github.com/uditmishra03/End-to-End-Kubernetes-Three-Tier-DevSecOps-Project)**
+- AWS Infrastructure provisioning (Terraform)
+- Jenkins CI/CD server setup
+- EKS cluster configuration
+- Kubernetes manifests for all services
+- ArgoCD GitOps configurations
+- Monitoring setup (Prometheus, Grafana)
+- Automation scripts
+
+### Frontend Microservice
+**[three-tier-fe](https://github.com/uditmishra03/three-tier-fe)**
+- ReactJS application with modern UI
+- Nginx web server configuration
+- Independent Jenkins pipeline
+- Dedicated ECR repository: `frontend`
+- Date-based image tagging (YYYYMMDD-BUILD)
+
+### Backend Microservice
+**[three-tier-be](https://github.com/uditmishra03/three-tier-be)**
+- NodeJS/Express REST API
+- MongoDB integration
+- Independent Jenkins pipeline
+- Dedicated ECR repository: `backend`
+- Date-based image tagging (YYYYMMDD-BUILD)
+
+### Why Microservices?
+- ✅ **Independent Deployments:** Frontend and backend deploy separately
+- ✅ **Isolated CI/CD:** Code changes trigger only the affected service pipeline
+- ✅ **Better Scalability:** Each service scales independently
+- ✅ **Improved Developer Experience:** Teams work in isolation without conflicts
+- ✅ **Clear Separation of Concerns:** Infrastructure, frontend, and backend are decoupled
 
 ---
 
@@ -57,8 +96,162 @@ End-to-end **DevSecOps** implementation for a **Three-Tier Web Application** on 
 
 ### 2.1 System Architecture
 
-**[PLACEHOLDER: High-Level Architecture Diagram]**
-*Complete DevSecOps workflow: Developer → GitHub → Jenkins → ECR → EKS → Monitoring*
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                                    DEVELOPER                                         │
+│                                        │                                             │
+│                                    Git Push                                          │
+└────────────────────────────────────────┼───────────────────────────────────────────┘
+                                         │
+                 ┌───────────────────────┼───────────────────────┐
+                 │                       │                       │
+                 ▼                       ▼                       ▼
+┌────────────────────────┐  ┌────────────────────────┐  ┌────────────────────────┐
+│   GitHub Repository    │  │   GitHub Repository    │  │   GitHub Repository    │
+│   (Infrastructure)     │  │   (three-tier-fe)      │  │   (three-tier-be)      │
+│  ┌──────────────────┐  │  │  ┌──────────────────┐  │  │  ┌──────────────────┐  │
+│  │ K8s Manifests    │  │  │  │ React Frontend   │  │  │  │ Node.js Backend  │  │
+│  │ ArgoCD Configs   │  │  │  │ Nginx Config     │  │  │  │ Express API      │  │
+│  │ Terraform IaC    │  │  │  │ Jenkinsfile      │  │  │  │ Jenkinsfile      │  │
+│  └──────────────────┘  │  │  └──────────────────┘  │  │  └──────────────────┘  │
+└───────────┬────────────┘  └───────────┬────────────┘  └───────────┬────────────┘
+            │                           │                           │
+         Webhook                     Webhook                     Webhook
+            │                           │                           │
+            └───────────────────────────┼───────────────────────────┘
+                                        │
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                           JENKINS CI/CD SERVER (EC2)                                 │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐                    │
+│  │  Frontend MBP   │  │  Backend MBP    │  │  Infrastructure │                    │
+│  │  - SonarQube    │  │  - SonarQube    │  │  - Terraform    │                    │
+│  │  - Trivy Scan   │  │  - Trivy Scan   │  │  - Scripts      │                    │
+│  │  - Docker Build │  │  - Docker Build │  │  - Monitoring   │                    │
+│  │  - ECR Push     │  │  - ECR Push     │  │                 │                    │
+│  │  - Update K8s   │  │  - Update K8s   │  │                 │                    │
+│  └────────┬────────┘  └────────┬────────┘  └─────────────────┘                    │
+└───────────┼──────────────────────┼──────────────────────────────────────────────────┘
+            │                      │
+            │ Push Image           │ Push Image
+            │ (YYYYMMDD-BUILD)     │ (YYYYMMDD-BUILD)
+            │                      │
+            ▼                      ▼
+┌───────────────────────┐    ┌───────────────────────┐
+│   AWS ECR Registry    │    │   AWS ECR Registry    │
+│   Frontend Repository │    │   Backend Repository  │
+│   - Tagged Images     │    │   - Tagged Images     │
+│   - Lifecycle Policy  │    │   - Lifecycle Policy  │
+│   (Delete untagged    │    │   (Delete untagged    │
+│    images > 5 days)   │    │    images > 5 days)   │
+└───────────┬───────────┘    └───────────┬───────────┘
+            │                            │
+            └────────────┬───────────────┘
+                         │ Image Updater Monitors
+                         ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                                  ARGOCD (GitOps)                                     │
+│  ┌──────────────────────┐              ┌──────────────────────┐                    │
+│  │  Frontend App        │              │  Backend App         │                    │
+│  │  - Auto-sync: true   │              │  - Auto-sync: true   │                    │
+│  │  - Image Updater     │              │  - Image Updater     │                    │
+│  │  - Tag regex: ^[0-9-]+$           - Tag regex: ^[0-9-]+$  │                    │
+│  │  - Git write-back    │              │  - Git write-back    │                    │
+│  └──────────┬───────────┘              └──────────┬───────────┘                    │
+└─────────────┼──────────────────────────────────────┼─────────────────────────────────┘
+              │                                      │
+              │ Deploy                               │ Deploy
+              │                                      │
+              ▼                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                            AWS EKS CLUSTER (Kubernetes)                              │
+│  ┌────────────────────────────────────────────────────────────────────────────────┐ │
+│  │                           Namespace: three-tier                                 │ │
+│  │  ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐        │ │
+│  │  │ Frontend Pod(s)  │    │ Backend Pod(s)   │    │ MongoDB Pod(s)   │        │ │
+│  │  │ - React App      │    │ - Node.js API    │    │ - Database       │        │ │
+│  │  │ - Nginx          │◄───┤ - Express        │◄───┤ - Persistent Vol │        │ │
+│  │  │ - Port: 3000     │    │ - Port: 3500     │    │ - Port: 27017    │        │ │
+│  │  └────────┬─────────┘    └────────┬─────────┘    └──────────────────┘        │ │
+│  │           │                       │                                            │ │
+│  │  ┌────────▼───────────────────────▼──────┐                                    │ │
+│  │  │        Service Mesh / Services         │                                    │ │
+│  │  │  - frontend-svc (ClusterIP)            │                                    │ │
+│  │  │  - backend-svc (ClusterIP)             │                                    │ │
+│  │  │  - mongodb-svc (ClusterIP)             │                                    │ │
+│  │  └────────┬───────────────────────────────┘                                    │ │
+│  └───────────┼────────────────────────────────────────────────────────────────────┘ │
+│              │                                                                       │
+│  ┌───────────▼───────────────────────────────────────────────────────────────────┐ │
+│  │                     AWS Load Balancer Controller                               │ │
+│  │  ┌──────────────┐                                                              │ │
+│  │  │   Ingress    │                                                              │ │
+│  │  │  - ALB       │                                                              │ │
+│  │  │  - Path-based│                                                              │ │
+│  │  └──────┬───────┘                                                              │ │
+│  └─────────┼──────────────────────────────────────────────────────────────────────┘ │
+└────────────┼────────────────────────────────────────────────────────────────────────┘
+             │
+             │ Internet Traffic
+             ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                          AWS APPLICATION LOAD BALANCER                               │
+│  http://<alb-dns>       →  Frontend (React UI)                                      │
+│  http://<alb-dns>/api   →  Backend (Node.js API)                                    │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+             │
+             │ HTTP/HTTPS
+             ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                                  END USERS                                           │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                     MONITORING & OBSERVABILITY (Namespace: monitoring)               │
+│  ┌──────────────────────┐              ┌──────────────────────┐                    │
+│  │   Prometheus         │              │   Grafana            │                    │
+│  │   - Metrics Collection──────────────►  - Dashboards        │                    │
+│  │   - Service Discovery│              │  - Visualizations    │                    │
+│  │   - Alert Rules      │              │  - Alerting          │                    │
+│  └──────────────────────┘              └──────────────────────┘                    │
+│             ▲                                                                        │
+│             │ Scrape Metrics                                                         │
+│             └─────────────── From All Pods & Services                                │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Key Architecture Highlights:**
+
+1. **Microservices Separation:**
+   - 3 independent Git repositories (Infrastructure, Frontend, Backend)
+   - Separate CI/CD pipelines for each service
+   - Independent deployment cycles
+
+2. **CI/CD Pipeline:**
+   - Webhook-triggered Jenkins Multibranch Pipelines
+   - Security scanning (SonarQube + Trivy)
+   - Date-based image tagging (YYYYMMDD-BUILD)
+   - Automated manifest updates
+
+3. **GitOps Deployment:**
+   - ArgoCD auto-sync enabled
+   - Image Updater monitors ECR for new tags
+   - Automatic git write-back to manifest repo
+
+4. **Container Registry:**
+   - Dedicated ECR repositories per service
+   - Lifecycle policies for automated cleanup
+   - Only tagged images preserved
+
+5. **Kubernetes Cluster:**
+   - AWS EKS with auto-scaling node groups
+   - Namespace isolation (three-tier, monitoring, argocd)
+   - ALB Ingress for external access
+
+6. **Monitoring Stack:**
+   - Prometheus for metrics collection
+   - Grafana for visualization and alerting
+   - Service discovery for auto-monitoring
 
 ### 2.2 Deployment Workflow
 
@@ -449,16 +642,41 @@ kubectl create secret docker-registry ecr-registry-secret \
 
 ## 8. Application Architecture
 
-### 8.1 Three-Tier Architecture Overview
+### 8.1 Microservices Architecture Overview
 
 **[PLACEHOLDER: Application Architecture Diagram]**
 
+This project follows a **microservices architecture** with three separate repositories:
+
+#### Infrastructure Repository
+**Repository:** [End-to-End-Kubernetes-Three-Tier-DevSecOps-Project](https://github.com/uditmishra03/End-to-End-Kubernetes-Three-Tier-DevSecOps-Project)
+- AWS infrastructure (EKS, Jenkins, networking)
+- Kubernetes manifests for all services
+- ArgoCD GitOps configurations
+- Monitoring setup
+
+#### Frontend Microservice
+**Repository:** [three-tier-fe](https://github.com/uditmishra03/three-tier-fe)
+- Technology: ReactJS 17 with modern UI design
+- Web server: Nginx
+- CI/CD: Independent Jenkins pipeline
+- ECR: Dedicated `frontend` repository
+- Tagging: Date-based format `YYYYMMDD-BUILD`
+
+#### Backend Microservice
+**Repository:** [three-tier-be](https://github.com/uditmishra03/three-tier-be)
+- Technology: NodeJS/Express 4
+- Database: MongoDB integration
+- CI/CD: Independent Jenkins pipeline
+- ECR: Dedicated `backend` repository
+- Tagging: Date-based format `YYYYMMDD-BUILD`
+
 **Architecture Layers:**
 
-| Layer | Technology | Port | Purpose |
-|-------|-----------|------|---------|
-| **Frontend** | React.js 17 | 3000 | User interface, Material-UI components |
-| **Backend** | Node.js/Express 4 | 3500 | REST API, business logic |
+| Layer | Technology | Port | Repository | Purpose |
+|-------|-----------|------|------------|---------|
+| **Frontend** | React.js 17, Nginx | 3000 | [three-tier-fe](https://github.com/uditmishra03/three-tier-fe) | User interface, Material-UI components |
+| **Backend** | Node.js/Express 4 | 3500 | [three-tier-be](https://github.com/uditmishra03/three-tier-be) | REST API, business logic |
 | **Database** | MongoDB 4.4 | 27017 | Data persistence, document storage |
 
 ### 8.2 Application Components
