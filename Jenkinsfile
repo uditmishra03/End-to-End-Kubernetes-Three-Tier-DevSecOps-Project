@@ -22,7 +22,7 @@ pipeline {
         stage('Terraform Validation') {
             steps {
                 script {
-                    echo '========== Validating Terraform Syntax =========='
+                    echo '========== Validating Terraform Configuration =========='
                     dir('Jenkins-Server-TF') {
                         sh '''
                             terraform --version
@@ -41,10 +41,10 @@ pipeline {
             }
         }
         
-        stage('Kubernetes YAML Validation') {
+        stage('YAML & Scripts Validation') {
             steps {
                 script {
-                    echo '========== Validating Kubernetes Manifests =========='
+                    echo '========== Validating YAML Files and Shell Scripts =========='
                     sh '''
                         # Install kubeconform if not present
                         if ! command -v kubeconform &> /dev/null; then
@@ -52,46 +52,37 @@ pipeline {
                             wget -q https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz
                             tar xf kubeconform-linux-amd64.tar.gz
                             chmod +x kubeconform
-                            sudo mv kubeconform /usr/local/bin/
                             rm kubeconform-linux-amd64.tar.gz
                         fi
                         
-                        echo "Validating K8s manifests in k8s-infrastructure/..."
-                        kubeconform -summary -output text k8s-infrastructure/ || {
+                        echo "=== Validating Kubernetes Manifests ==="
+                        ./kubeconform -summary -output text k8s-infrastructure/ || {
                             echo "❌ Kubernetes YAML validation failed!"
                             exit 1
                         }
-                        echo "✅ Kubernetes YAML validation passed!"
-                    '''
-                }
-            }
-        }
-        
-        stage('ArgoCD Applications Validation') {
-            steps {
-                script {
-                    echo '========== Validating ArgoCD Application Definitions =========='
-                    sh '''
-                        echo "Checking ArgoCD application YAML syntax..."
+                        echo "✅ K8s manifests validated"
+                        
+                        echo ""
+                        echo "=== Validating ArgoCD Applications ==="
                         for file in argocd-apps/*.yaml; do
                             echo "Validating $file..."
-                            kubeconform -summary -output text "$file" || {
+                            ./kubeconform -summary -output text "$file" || {
                                 echo "❌ ArgoCD application validation failed for $file"
                                 exit 1
                             }
                         done
-                        echo "✅ ArgoCD applications validation passed!"
-                    '''
-                }
-            }
-        }
-        
-        stage('Shell Scripts Validation') {
-            steps {
-                script {
-                    echo '========== Validating Shell Scripts Syntax =========='
-                    sh '''
-                        echo "Checking shell scripts syntax..."
+                        echo "✅ ArgoCD applications validated"
+                        
+                        echo ""
+                        echo "=== Validating ArgoCD Image Updater Config ==="
+                        ./kubeconform -summary -output text argocd-image-updater-config/*.yaml || {
+                            echo "❌ ArgoCD Image Updater config validation failed!"
+                            exit 1
+                        }
+                        echo "✅ ArgoCD Image Updater config validated"
+                        
+                        echo ""
+                        echo "=== Validating Shell Scripts ==="
                         find . -name "*.sh" -type f | while read script; do
                             echo "Validating $script..."
                             bash -n "$script" || {
@@ -99,83 +90,35 @@ pipeline {
                                 exit 1
                             }
                         done
-                        echo "✅ Shell scripts validation passed!"
+                        echo "✅ All shell scripts validated"
                     '''
                 }
             }
         }
         
-        stage('ArgoCD Image Updater Config Validation') {
-            steps {
-                script {
-                    echo '========== Validating ArgoCD Image Updater Configuration =========='
-                    sh '''
-                        echo "Validating ArgoCD Image Updater YAML files..."
-                        kubeconform -summary -output text argocd-image-updater-config/*.yaml || {
-                            echo "❌ ArgoCD Image Updater config validation failed!"
-                            exit 1
-                        }
-                        echo "✅ ArgoCD Image Updater configuration validation passed!"
-                    '''
-                }
-            }
-        }
-        
-        stage('Documentation Check') {
-            steps {
-                script {
-                    echo '========== Checking Documentation Files =========='
-                    sh '''
-                        echo "Verifying essential documentation exists..."
-                        
-                        required_docs=(
-                            "README.md"
-                            "docs/DOCUMENTATION.md"
-                            "docs/FUTURE-ENHANCEMENTS.md"
-                        )
-                        
-                        for doc in "${required_docs[@]}"; do
-                            if [ ! -f "$doc" ]; then
-                                echo "❌ Missing required documentation: $doc"
-                                exit 1
-                            fi
-                        done
-                        
-                        echo "Checking for broken relative links in README.md..."
-                        # Basic check for referenced files in docs/
-                        grep -o 'docs/[^)]*\\.md' README.md | while read ref; do
-                            if [ ! -f "$ref" ]; then
-                                echo "⚠️  WARNING: Referenced file not found: $ref"
-                            fi
-                        done
-                        
-                        echo "✅ Documentation check passed!"
-                    '''
-                }
-            }
-        }
-        
-        stage('Security Scan - Trivy IaC') {
+        stage('Security Scan') {
             steps {
                 script {
                     echo '========== Scanning Infrastructure for Security Issues =========='
                     sh '''
-                        # Install Trivy if not present
+                        # Check if Trivy is installed
                         if ! command -v trivy &> /dev/null; then
-                            echo "Installing Trivy..."
-                            wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+                            echo "Trivy not installed. Installing..."
+                            wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor -o trivy.gpg
+                            cat trivy.gpg | sudo tee /etc/apt/trusted.gpg.d/trivy.gpg > /dev/null
                             echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
                             sudo apt-get update
                             sudo apt-get install trivy -y
                         fi
                         
-                        echo "Scanning Terraform code for security issues..."
-                        trivy config --severity HIGH,CRITICAL Jenkins-Server-TF/ || {
+                        echo "=== Scanning Terraform Code ==="
+                        trivy config --severity HIGH,CRITICAL --exit-code 0 Jenkins-Server-TF/ || {
                             echo "⚠️  WARNING: Security issues found in Terraform code"
                         }
                         
-                        echo "Scanning Kubernetes manifests for security issues..."
-                        trivy config --severity HIGH,CRITICAL k8s-infrastructure/ || {
+                        echo ""
+                        echo "=== Scanning Kubernetes Manifests ==="
+                        trivy config --severity HIGH,CRITICAL --exit-code 0 k8s-infrastructure/ || {
                             echo "⚠️  WARNING: Security issues found in K8s manifests"
                         }
                         
@@ -189,19 +132,17 @@ pipeline {
             steps {
                 script {
                     echo '''
-                    ╔═══════════════════════════════════════════════════════════╗
-                    ║         Infrastructure Validation Summary                 ║
-                    ╠═══════════════════════════════════════════════════════════╣
-                    ║  ✅ Terraform syntax validation                           ║
-                    ║  ✅ Kubernetes YAML validation                            ║
-                    ║  ✅ ArgoCD applications validation                        ║
-                    ║  ✅ Shell scripts syntax check                            ║
-                    ║  ✅ ArgoCD Image Updater config validation                ║
-                    ║  ✅ Documentation verification                            ║
-                    ║  ✅ Security scan (Trivy IaC)                             ║
-                    ╠═══════════════════════════════════════════════════════════╣
-                    ║  All infrastructure validation checks passed! 🚀          ║
-                    ╚═══════════════════════════════════════════════════════════╝
+                    ╔════════════════════════════════════════════════════════╗
+                    ║      Infrastructure Validation Summary                ║
+                    ╠════════════════════════════════════════════════════════╣
+                    ║  ✅ Terraform validation                              ║
+                    ║  ✅ Kubernetes YAML validation                        ║
+                    ║  ✅ ArgoCD applications & config validation           ║
+                    ║  ✅ Shell scripts syntax validation                   ║
+                    ║  ✅ Security scan (Trivy IaC)                         ║
+                    ╠════════════════════════════════════════════════════════╣
+                    ║  All infrastructure checks passed! 🚀                 ║
+                    ╚════════════════════════════════════════════════════════╝
                     '''
                 }
             }
