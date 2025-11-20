@@ -130,9 +130,6 @@ pipeline {
                 }
             }
         }
-                }
-            }
-        }
         
         stage('Validation Summary') {
             steps {
