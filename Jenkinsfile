@@ -2,7 +2,7 @@ pipeline {
     agent any
     
     tools {
-        terraform 'terraform'  // Name configured in Jenkins Global Tool Configuration
+        terraform 'terraform'
     }
     
     environment {
