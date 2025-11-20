@@ -1,0 +1,30 @@
+{
+  "rules": [
+    {
+      "rulePriority": 1,
+      "description": "Keep all tagged images (no expiration)",
+      "selection": {
+        "tagStatus": "tagged",
+        "tagPrefixList": ["20"],
+        "countType": "imageCountMoreThan",
+        "countNumber": 9999
+      },
+      "action": {
+        "type": "expire"
+      }
+    },
+    {
+      "rulePriority": 2,
+      "description": "Delete untagged images older than 5 days (cache cleanup)",
+      "selection": {
+        "tagStatus": "untagged",
+        "countType": "sinceImagePushed",
+        "countUnit": "days",
+        "countNumber": 5
+      },
+      "action": {
+        "type": "expire"
+      }
+    }
+  ]
+}
