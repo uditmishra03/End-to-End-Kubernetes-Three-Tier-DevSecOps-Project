@@ -17,6 +17,7 @@ This document consolidates all planned enhancements, improvements, and future sc
 | ArgoCD Image Auto-Deployment for Backend                       | ✅ Completed                    | Critical      |
 | S3 Backup Integration for Cluster Configuration                | ✅ Completed                    | High          |
 | Separate Backend and Frontend Repositories (Phased Approach)   | 🔄 Phase 1 ✅, Phase 2 🚀       | High          |
+| ECR Lifecycle Policy for Automated Image Cleanup               | ✅ Completed                    | Medium        |
 | HTTPS Implementation                                           | 🚀 Planned                      | Medium        |
 | Automation Scripts Testing & Enhancement                       | 🔄 Testing & Enhancement Phase  | High          |
 | Complete Infrastructure as Code (IaC)                          | 🚀 Planned                      | High          |
@@ -297,6 +298,50 @@ Transition from the current monorepo to a true microservices architecture by sep
 - ✅ Documented process and lessons learned
 - ✅ Identified all backend-specific files for migration
 - ✅ Ready to replicate process tomorrow
+
+---
+#### **ECR Lifecycle Policy Implementation** ✅ **COMPLETED** (November 20, 2025)
+
+**Goal:** Implement automated cleanup of untagged Docker images (cache layers) to reduce ECR storage costs while preserving all production images.
+
+**Problem:** ECR repositories contained 70-90% untagged images (Docker BuildKit cache layers from multi-stage builds), consuming unnecessary storage and incurring costs (~$0.10/GB-month).
+
+**Implementation Steps:**
+1.  ✅ **Created Terraform ECR Repository Definitions:** Added `ecr_repositories.tf` with resource definitions for frontend and backend ECR repositories
+    - Configured: `image_tag_mutability = MUTABLE`, `scan_on_push = true`, `encryption_type = AES256`
+    - Added outputs for repository URLs and ARNs
+2.  ✅ **Implemented Lifecycle Policies:** Created `ecr_lifecycle_policies.tf` with 2-rule policy structure:
+    - **Rule 1 (Priority 1):** Keep all tagged images indefinitely (prefix "20", count 9999)
+    - **Rule 2 (Priority 2):** Delete untagged images older than 5 days
+3.  ✅ **Imported Existing Repositories:** Created `import-ecr.sh` script to import manually-created ECR repos into Terraform state
+    - Script checks repository existence before import
+    - Imports both frontend and backend repositories
+    - Includes var-file parameter for Terraform variables
+4.  ✅ **Applied Policies via Terraform:** Successfully applied lifecycle policies to both repositories using Terraform
+5.  ✅ **Version Control:** All ECR infrastructure now managed as Infrastructure as Code
+
+**Policy Verification:**
+```bash
+aws ecr get-lifecycle-policy --repository-name frontend
+# Output shows: "lastEvaluatedAt": "1970-01-01" (never run yet - first execution within 24 hours)
+```
+
+**Expected Benefits:**
+- 💰 **Cost Savings:** $1-2/month per repository (~70-90% storage reduction)
+- 🗑️ **Automated Cleanup:** Untagged images automatically deleted after 5 days
+- ✅ **Production Safety:** All tagged images (YYYYMMDD-BUILD format) preserved indefinitely
+- 📋 **Version Control:** ECR infrastructure managed through Terraform
+
+**Policy Execution Timeline:**
+- Policies applied: November 20, 2025
+- First automatic execution: Within 24 hours (AWS runs daily)
+- Untagged images from November 13 (7 days old) will be deleted in first run
+
+**Files Modified:**
+- `Jenkins-Server-TF/ecr_repositories.tf` (NEW)
+- `Jenkins-Server-TF/ecr_lifecycle_policies.tf` (NEW)
+- `Jenkins-Server-TF/ecr-lifecycle-policy.json` (Standalone JSON version)
+- `Jenkins-Server-TF/import-ecr.sh` (Import automation script)
 
 ---
 #### **Future Consideration: Decouple Database Lifecycle**
