@@ -3,7 +3,7 @@
 
 # Lifecycle policy for frontend ECR repository
 resource "aws_ecr_lifecycle_policy" "frontend" {
-  repository = "frontend"
+  repository = aws_ecr_repository.frontend.name
 
   policy = jsonencode({
     rules = [
@@ -39,7 +39,7 @@ resource "aws_ecr_lifecycle_policy" "frontend" {
 
 # Lifecycle policy for backend ECR repository
 resource "aws_ecr_lifecycle_policy" "backend" {
-  repository = "backend"
+  repository = aws_ecr_repository.backend.name
 
   policy = jsonencode({
     rules = [
