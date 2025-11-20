@@ -107,13 +107,12 @@ pipeline {
                     sh '''
                         # Check if Trivy is installed
                         if ! command -v trivy &> /dev/null; then
-                            echo "Trivy not installed. Installing..."
-                            wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor -o trivy.gpg
-                            cat trivy.gpg | sudo tee /etc/apt/trusted.gpg.d/trivy.gpg > /dev/null
-                            echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
-                            sudo apt-get update
-                            sudo apt-get install trivy -y
+                            echo "⚠️  Trivy not installed. Skipping security scan."
+                            echo "To enable security scanning, install Trivy manually on the Jenkins agent."
+                            exit 0
                         fi
+                        
+                        echo "Using Trivy: $(trivy --version)"
                         
                         echo "=== Scanning Terraform Code ==="
                         trivy config --severity HIGH,CRITICAL --exit-code 0 Jenkins-Server-TF/ || {
@@ -128,6 +127,9 @@ pipeline {
                         
                         echo "✅ Security scan completed!"
                     '''
+                }
+            }
+        }
                 }
             }
         }
