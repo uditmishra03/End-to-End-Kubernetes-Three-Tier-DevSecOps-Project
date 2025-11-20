@@ -1,3 +1,4 @@
+// Infrastructure Validation Pipeline - Testing webhook trigger
 pipeline {
     agent any
     
