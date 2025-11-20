@@ -14,7 +14,7 @@ spec:
   source:
     repoURL: https://github.com/uditmishra03/three-tier-fe.git
     targetRevision: master
-    path: Kubernetes-Manifests-file/Frontend
+    path: manifests
   destination:
     server: https://kubernetes.default.svc
     namespace: three-tier

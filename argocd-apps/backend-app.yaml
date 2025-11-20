@@ -6,15 +6,15 @@ metadata:
   annotations:
     argocd-image-updater.argoproj.io/image-list: backend=296062548155.dkr.ecr.us-east-1.amazonaws.com/backend
     argocd-image-updater.argoproj.io/backend.update-strategy: latest
-    argocd-image-updater.argoproj.io/backend.allow-tags: regexp:^[0-9]+$
+    argocd-image-updater.argoproj.io/backend.allow-tags: regexp:^[0-9-]+$
     argocd-image-updater.argoproj.io/backend.force-update: "true"
     argocd-image-updater.argoproj.io/write-back-method: argocd
 spec:
   project: default
   source:
-    repoURL: https://github.com/uditmishra03/End-to-End-Kubernetes-Three-Tier-DevSecOps-Project.git
-    targetRevision: HEAD
-    path: Kubernetes-Manifests-file/Backend
+    repoURL: https://github.com/uditmishra03/three-tier-be.git
+    targetRevision: master
+    path: manifests
   destination:
     server: https://kubernetes.default.svc
     namespace: three-tier
