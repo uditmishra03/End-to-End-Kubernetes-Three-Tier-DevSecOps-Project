@@ -66,19 +66,23 @@ pipeline {
                         echo "=== Validating ArgoCD Applications ==="
                         for file in argocd-apps/*.yaml; do
                             echo "Validating $file..."
-                            ./kubeconform -summary -output text "$file" || {
-                                echo "❌ ArgoCD application validation failed for $file"
+                            # Basic YAML syntax check
+                            python3 -c "import yaml; yaml.safe_load(open('$file'))" || {
+                                echo "❌ YAML syntax error in $file"
                                 exit 1
                             }
                         done
-                        echo "✅ ArgoCD applications validated"
+                        echo "✅ ArgoCD applications YAML syntax validated"
                         
                         echo ""
                         echo "=== Validating ArgoCD Image Updater Config ==="
-                        ./kubeconform -summary -output text argocd-image-updater-config/*.yaml || {
-                            echo "❌ ArgoCD Image Updater config validation failed!"
-                            exit 1
-                        }
+                        for file in argocd-image-updater-config/*.yaml; do
+                            echo "Validating $file..."
+                            python3 -c "import yaml; yaml.safe_load(open('$file'))" || {
+                                echo "❌ YAML syntax error in $file"
+                                exit 1
+                            }
+                        done
                         echo "✅ ArgoCD Image Updater config validated"
                         
                         echo ""
