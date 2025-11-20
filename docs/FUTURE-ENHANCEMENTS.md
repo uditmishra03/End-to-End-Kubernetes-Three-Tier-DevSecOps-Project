@@ -18,7 +18,8 @@ This document consolidates all planned enhancements, improvements, and future sc
 | Optimized Docker Builds for Frontend & Backend                 | ✅ Completed                    | High          |
 | ArgoCD Image Auto-Deployment for Backend                       | ✅ Completed                    | Critical      |
 | S3 Backup Integration for Cluster Configuration                | ✅ Completed                    | High          |
-| Separate Backend and Frontend Repositories (Phased Approach)   | 🔄 Phase 1 ✅, Phase 2 🚀       | High          |
+| Separate Backend and Frontend Repositories (Phased Approach)   | ✅ Phase 1 & 2 Completed        | High          |
+| Infrastructure Validation Pipeline                             | ✅ Completed                    | High          |
 | ECR Lifecycle Policy for Automated Image Cleanup               | ✅ Completed                    | Medium        |
 | HTTPS Implementation                                           | 🚀 Planned                      | Medium        |
 | Automation Scripts Testing & Enhancement                       | 🔄 Testing & Enhancement Phase  | High          |
@@ -218,13 +219,13 @@ Test and enhance the shutdown and startup scripts for cost-saving cluster manage
 ---
 
 ### 5. 📦 Separate Backend and Frontend Repositories (Phased Approach)
-**Status:** 🔄 Phase 1 Completed, Phase 2 Planned  
+**Status:** ✅ Phase 1 & Phase 2 Completed  
 **Priority:** High  
 **Complexity:** Medium  
-**Timeline:** Q1 2026  
+**Completion Date:** November 20, 2025  
 
 **Description:**
-Transition from the current monorepo to a true microservices architecture by separating the frontend and backend applications into their own dedicated repositories. This will be done in a phased approach to minimize risk and validate each step. The primary goal is to ensure a code change in one service only triggers its own CI/CD pipeline.
+Successfully transitioned from a monorepo to a true microservices architecture by separating the frontend and backend applications into their own dedicated repositories. This phased approach minimized risk and validated each step. The primary goal achieved: code changes in one service only trigger its own CI/CD pipeline, enabling true independent development and deployment.
 
 ---
 #### **Phase 1: Decouple Frontend Application** ✅ **COMPLETED** (November 20, 2025)
@@ -289,30 +290,251 @@ Transition from the current monorepo to a true microservices architecture by sep
 - [fixes/SONARQUBE-FIX-GUIDE.md](./fixes/SONARQUBE-FIX-GUIDE.md) - SonarQube integration fixes
 
 ---
-#### **Phase 2: Decouple Backend Application** 🚀 **PLANNED** (Scheduled: Tomorrow)
+#### **Phase 2: Decouple Backend Application** ✅ **COMPLETED** (November 20, 2025)
 
-**Goal:** After the frontend is successfully decoupled, repeat the process for the backend application.
+**Goal:** After the frontend was successfully decoupled, replicate the process for the backend application, achieving complete microservices separation.
 
-**Implementation Steps:**
-1.  🚀 **Create New `three-tier-backend` Repository:** New repository will be created for the backend code
-2.  🚀 **Migrate Backend Code:** Contents of `Application-Code/backend` will be migrated with full commit history
-3.  🚀 **Create Standalone Backend Pipeline:** Jenkins pipeline will be configured for new repository
-4.  🚀 **Implement Date-Based Tagging:** Apply same `YYYYMMDD-BUILD` format for consistency
-5.  🚀 **Update ArgoCD Configuration:** `argocd-apps/backend-app.yaml` will point to new backend repository
-6.  🚀 **Update Backend Tag Regex:** Similar to frontend, update allow-tags pattern to support date format
-7.  🚀 **Verify and Clean Up:** Test independent backend workflow and remove from main repo
-8.  🚀 **Rename Infrastructure Repo:** Original repository will be renamed to `three-tier-infrastructure`
+**Implementation Steps Completed:**
+1.  ✅ **Created New `three-tier-be` Repository:** Dedicated backend repository at `https://github.com/uditmishra03/three-tier-be.git`
+2.  ✅ **Migrated Backend Code:** Complete migration of `Application-Code/backend` including:
+    - All backend source code (index.js, db.js, routes/, models/)
+    - Dockerfile and Docker configuration (.dockerignore)
+    - package.json and Node.js dependencies
+    - sonar-project.properties for code quality scanning
+3.  ✅ **Fixed Backend Jenkinsfile Issues:**
+    - Removed `dir('Application-Code/backend')` wrappers from SonarQube and Trivy stages
+    - Fixed Docker build to work from repository root
+    - Standardized platform to `linux/amd64` only (removed multi-platform complexity)
+    - Applied date-based tagging (YYYYMMDD-BUILD format)
+4.  ✅ **Restructured Kubernetes Manifests:**
+    - Moved manifests from nested `Kubernetes-Manifests-file/Backend/` to root `manifests/` directory
+    - Created clean structure: `manifests/deployment.yaml`, `manifests/service.yaml`, `manifests/kustomization.yaml`
+    - Replicated same structure in frontend repo for consistency
+    - Both microservices now follow identical manifest organization
+5.  ✅ **Updated ArgoCD Configuration:**
+    - Modified `argocd-apps/backend-app.yaml` to point to `three-tier-be` repository
+    - Updated path from `Kubernetes-Manifests-file/Backend` to `manifests/`
+    - Changed `targetRevision` to `master` branch
+    - Fixed allow-tags regex to `^[0-9-]+$` for date-based format support
+6.  ✅ **Created ArgoCD Apps for Shared Infrastructure:**
+    - Created `argocd-apps/database-app.yaml` for MongoDB StatefulSet management
+    - Created `argocd-apps/ingress-app.yaml` for ALB Ingress Controller
+    - Database and Ingress remain in infrastructure repo as cluster-wide shared resources
+    - All 4 ArgoCD applications now healthy and synced
+7.  ✅ **Renamed Infrastructure Directory:**
+    - Renamed `Kubernetes-Manifests-file/` to `k8s-infrastructure/` for clarity
+    - Updated all ArgoCD application paths to reference new directory name
+    - Removed legacy naming from monolithic architecture era
+8.  ✅ **Cleaned Up Infrastructure Repository:**
+    - Removed `Application-Code/backend/` directory (8 files: source code, Dockerfile, configs)
+    - Removed `Jenkins-Pipeline-Code/` directory (2 legacy Jenkinsfiles)
+    - Removed old Backend manifests from `Kubernetes-Manifests-file/Backend/` (3 files)
+    - Total cleanup: 13 files removed, infrastructure repo now contains only shared resources
+    - Committed: "refactor: Complete microservices migration and infrastructure cleanup"
+9.  ✅ **Verified End-to-End Backend Flow:**
+    - Tested complete CI/CD: code push → Jenkins build → ECR push → ArgoCD deployment
+    - ArgoCD Image Updater successfully detects and deploys backend images
+    - Backend changes don't trigger frontend pipeline (true independence)
+    - All 4 ArgoCD apps (frontend, backend, database, ingress) showing Healthy & Synced status
 
-**Preparation Complete:**
-- ✅ Validated approach with successful frontend migration
-- ✅ Documented process and lessons learned
-- ✅ Identified all backend-specific files for migration
-- ✅ Ready to replicate process tomorrow
+**Key Achievements:**
+- 🎯 **Complete Microservices Architecture:** Three independent repositories with dedicated CI/CD
+  - `three-tier-fe` - Frontend microservice
+  - `three-tier-be` - Backend microservice  
+  - `End-to-End-Kubernetes-Three-Tier-DevSecOps-Project` - Infrastructure (shared resources)
+- 🚀 **Independent Development Cycles:** Backend and frontend teams fully decoupled
+- 📦 **Clean Separation of Concerns:** Application code separate from infrastructure code
+- 🏗️ **Shared Infrastructure Management:** Database and Ingress managed centrally via ArgoCD
+- ✅ **Consistent Manifest Structure:** Both microservices use identical `manifests/` layout
+- 📊 **Professional Repository Naming:** Clear, intuitive naming convention for all repos
+- 🔄 **GitOps Best Practices:** All infrastructure changes tracked in git with ArgoCD sync
+
+**Lessons Learned:**
+- Jenkinsfile `dir()` wrappers must be removed when migrating to repository root
+- Shared infrastructure (database, ingress) should remain in central infrastructure repo
+- Consistent manifest directory structure improves maintainability across microservices
+- Directory naming matters: `k8s-infrastructure` is clearer than `Kubernetes-Manifests-file`
+- ArgoCD applications work well for managing both microservices and shared resources
 
 ---
-#### **ECR Lifecycle Policy Implementation** ✅ **COMPLETED** (November 20, 2025)
+#### **Phase 3: Infrastructure Validation Pipeline** ✅ **COMPLETED** (November 20, 2025)
 
-**Goal:** Implement automated cleanup of untagged Docker images (cache layers) to reduce ECR storage costs while preserving all production images.
+**Goal:** Create automated validation pipeline for infrastructure repository to ensure code quality, syntax correctness, and security compliance for all IaC and configuration changes.
+
+**Problem:** Infrastructure repository contains critical Terraform code, Kubernetes manifests, ArgoCD configurations, and shell scripts that need validation before deployment. Without automated checks, syntax errors or security issues could reach production.
+
+**Implementation Steps Completed:**
+1.  ✅ **Created Infrastructure Jenkinsfile:** New `Jenkinsfile` at repository root for Infrastructure-Validation-MBP
+2.  ✅ **Configured Jenkins Terraform Plugin:** Installed and configured Terraform tool in Jenkins Global Tool Configuration
+3.  ✅ **Implemented Consolidated Validation Stages:**
+    - **Checkout Stage:** Clones infrastructure repository
+    - **Terraform Validation:** 
+      - Runs `terraform fmt -check -recursive` for formatting validation
+      - Executes `terraform init -backend=false` and `terraform validate` for syntax checking
+      - Validates all `.tf` files in `Jenkins-Server-TF/` directory
+    - **YAML & Scripts Validation:** (Consolidated from 4 separate stages)
+      - Kubernetes manifests validation with `kubeconform` tool
+      - ArgoCD application definitions validation with Python YAML parser
+      - ArgoCD Image Updater config validation
+      - Shell script syntax checking with `bash -n`
+    - **Security Scan:** 
+      - Trivy IaC security scanning for HIGH and CRITICAL issues
+      - Scans both Terraform code and Kubernetes manifests
+    - **Validation Summary:** Final status report with all checks
+4.  ✅ **Optimized Pipeline Structure:**
+    - Reduced from 9 stages to 5 stages for better clarity and performance
+    - Removed Documentation Check stage (not needed for pipeline validation)
+    - Combined logically similar validations into single stages
+    - All tools install without sudo requirements (local binaries)
+5.  ✅ **Tool Installation Strategy:**
+    - **kubeconform:** Downloads and uses local binary (`./kubeconform`)
+    - **Terraform:** Managed via Jenkins plugin with auto-installation
+    - **Python YAML:** Uses existing Python 3 on Jenkins agent
+    - **Trivy:** Uses pre-installed Trivy at `/usr/bin/trivy`
+    - No sudo permissions required for any tool
+6.  ✅ **ArgoCD-Specific Validation:**
+    - Switched from kubeconform to Python's `yaml.safe_load` for ArgoCD files
+    - Reason: kubeconform doesn't have ArgoCD CRD schemas by default
+    - Validates YAML syntax without requiring schema definitions
+7.  ✅ **Created Jenkins Multibranch Pipeline:**
+    - Job name: `Infrastructure-Validation-MBP`
+    - Configured branch discovery for all branches
+    - Set up periodic scanning (1 hour intervals)
+    - Connected to infrastructure repository with GitHub credentials
+
+**Pipeline Validation Coverage:**
+| Validation Type | Tool Used | Files Validated |
+|----------------|-----------|-----------------|
+| Terraform Syntax | terraform fmt, validate | `Jenkins-Server-TF/*.tf` |
+| K8s Manifests | kubeconform | `k8s-infrastructure/**/*.yaml` |
+| ArgoCD Apps | Python yaml | `argocd-apps/*.yaml` |
+| ArgoCD Image Updater | Python yaml | `argocd-image-updater-config/*.yaml` |
+| Shell Scripts | bash -n | `**/*.sh` |
+| IaC Security | Trivy | Terraform + K8s files |
+
+**Key Achievements:**
+- 🎯 **Automated Infrastructure Validation:** Every PR and commit validated automatically
+- 🚀 **No Manual Checks Required:** Pipeline catches errors before they reach production
+- 🔒 **Security Integration:** Trivy scans detect vulnerabilities in IaC
+- 📊 **Consolidated Stages:** Cleaner pipeline with logical grouping (5 stages vs 9)
+- ✅ **Zero Sudo Dependencies:** All tools run without elevated permissions
+- 🏗️ **3-Pipeline Architecture:** Complete CI/CD coverage
+  - Frontend MBP: Builds and pushes frontend images
+  - Backend MBP: Builds and pushes backend images
+  - Infrastructure MBP: Validates IaC, manifests, and scripts
+
+**Benefits:**
+- ✅ Catches Terraform syntax errors before apply
+- ✅ Validates Kubernetes manifest schema correctness
+- ✅ Ensures ArgoCD configurations are valid YAML
+- ✅ Detects shell script syntax issues early
+- ✅ Identifies security vulnerabilities in infrastructure code
+- ✅ Provides fast feedback loop (validation completes in < 2 minutes)
+
+**Pipeline Stages Summary:**
+```
+1. Checkout          → Clone repository
+2. Terraform         → Validate .tf files (fmt + validate)
+3. YAML & Scripts    → Validate K8s, ArgoCD, shell scripts
+4. Security Scan     → Trivy IaC scanning
+5. Summary           → Display validation results
+```
+
+---
+#### **Final Architecture Summary**
+
+**Three Independent Repositories:**
+```
+┌─────────────────────────────────────────────────────────────┐
+│  End-to-End-Kubernetes-Three-Tier-DevSecOps-Project (Main)  │
+│  ├─ Jenkins-Server-TF/          (Terraform IaC)             │
+│  ├─ k8s-infrastructure/         (Shared K8s resources)      │
+│  │  ├─ Database/                (MongoDB StatefulSet)       │
+│  │  └─ ingress.yaml             (ALB Ingress)               │
+│  ├─ argocd-apps/                (ArgoCD Applications)       │
+│  ├─ scripts/                    (Automation scripts)        │
+│  └─ docs/                       (Documentation)             │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│  three-tier-fe (Frontend Microservice)                      │
+│  ├─ src/                        (React source code)         │
+│  ├─ public/                     (Static assets)             │
+│  ├─ manifests/                  (K8s deployment)            │
+│  ├─ Dockerfile                  (Container build)           │
+│  └─ Jenkinsfile                 (CI/CD pipeline)            │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│  three-tier-be (Backend Microservice)                       │
+│  ├─ routes/                     (Express routes)            │
+│  ├─ models/                     (MongoDB models)            │
+│  ├─ manifests/                  (K8s deployment)            │
+│  ├─ Dockerfile                  (Container build)           │
+│  └─ Jenkinsfile                 (CI/CD pipeline)            │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Three Jenkins Pipelines:**
+1. **Frontend-MBP** (`three-tier-fe`)
+   - SonarQube analysis → Trivy scan → Docker build → ECR push
+   - Date-based image tags (YYYYMMDD-BUILD)
+   - ArgoCD Image Updater auto-deploys new images
+
+2. **Backend-MBP** (`three-tier-be`)
+   - SonarQube analysis → Trivy scan → Docker build → ECR push
+   - Date-based image tags (YYYYMMDD-BUILD)
+   - ArgoCD Image Updater auto-deploys new images
+
+3. **Infrastructure-Validation-MBP** (infrastructure repo)
+   - Terraform validation → K8s YAML validation → Shell script validation → Security scan
+   - Validates IaC, manifests, ArgoCD configs, scripts
+   - No image builds (validation-only pipeline)
+
+**Four ArgoCD Applications:**
+1. `frontend` → Deploys from `three-tier-fe/manifests/`
+2. `backend` → Deploys from `three-tier-be/manifests/`
+3. `database` → Deploys from infrastructure `k8s-infrastructure/Database/`
+4. `ingress` → Deploys from infrastructure `k8s-infrastructure/ingress.yaml`
+
+**GitOps Workflow:**
+```
+Developer Push → GitHub Webhook → Jenkins MBP → Build & Push to ECR
+                                                       ↓
+                                              ArgoCD Image Updater
+                                                       ↓
+                                              Updates K8s manifests
+                                                       ↓
+                                              ArgoCD sync → Deploy to EKS
+```
+
+**Lessons Learned from Complete Migration:**
+- Phased approach reduces risk and validates each step
+- Independent repositories enable true microservices development
+- Consistent manifest structure (`manifests/`) improves maintainability
+- Shared infrastructure (database, ingress) should remain centralized
+- Date-based tagging (YYYYMMDD-BUILD) provides better versioning than sequential numbers
+- ArgoCD applications work excellently for both microservices and shared resources
+- Infrastructure validation pipeline catches errors before production
+- Removing sudo dependencies makes pipelines more secure and portable
+
+**Impact:**
+- 🎯 **100% Microservices Decoupling:** Complete separation achieved
+- 🚀 **3 Independent CI/CD Pipelines:** Each with specific purpose
+- 📦 **Clean Repository Structure:** Application code separated from infrastructure
+- ✅ **Zero Downtime Migration:** Seamless transition without service interruption
+- 🔒 **Enhanced Security:** Automated validation and security scanning
+- 📊 **Better Developer Experience:** Teams can work independently without conflicts
+
+---
+
+### 6. 📦 ECR Lifecycle Policy for Automated Image Cleanup
+**Status:** ✅ Completed  
+**Priority:** Medium  
+**Completion Date:** November 20, 2025
+
+**Description:**
+Implemented automated cleanup of untagged Docker images (cache layers) to reduce ECR storage costs while preserving all production images.
 
 **Problem:** ECR repositories contained 70-90% untagged images (Docker BuildKit cache layers from multi-stage builds), consuming unnecessary storage and incurring costs (~$0.10/GB-month).
 
@@ -330,35 +552,19 @@ Transition from the current monorepo to a true microservices architecture by sep
 4.  ✅ **Applied Policies via Terraform:** Successfully applied lifecycle policies to both repositories using Terraform
 5.  ✅ **Version Control:** All ECR infrastructure now managed as Infrastructure as Code
 
-**Policy Verification:**
-```bash
-aws ecr get-lifecycle-policy --repository-name frontend
-# Output shows: "lastEvaluatedAt": "1970-01-01" (never run yet - first execution within 24 hours)
-```
-
 **Expected Benefits:**
 - 💰 **Cost Savings:** $1-2/month per repository (~70-90% storage reduction)
 - 🗑️ **Automated Cleanup:** Untagged images automatically deleted after 5 days
 - ✅ **Production Safety:** All tagged images (YYYYMMDD-BUILD format) preserved indefinitely
 - 📋 **Version Control:** ECR infrastructure managed through Terraform
 
-**Policy Execution Timeline:**
-- Policies applied: November 20, 2025
-- First automatic execution: Within 24 hours (AWS runs daily)
-- Untagged images from November 13 (7 days old) will be deleted in first run
-
-**Files Modified:**
-- `Jenkins-Server-TF/ecr_repositories.tf` (NEW)
-- `Jenkins-Server-TF/ecr_lifecycle_policies.tf` (NEW)
+**Files Created:**
+- `Jenkins-Server-TF/ecr_repositories.tf` (ECR resource definitions)
+- `Jenkins-Server-TF/ecr_lifecycle_policies.tf` (Lifecycle policy management)
 - `Jenkins-Server-TF/ecr-lifecycle-policy.json` (Standalone JSON version)
 - `Jenkins-Server-TF/import-ecr.sh` (Import automation script)
 
----
-#### **Future Consideration: Decouple Database Lifecycle**
-
-A key observation is the tight coupling between the backend application and the database deployment. A future enhancement will be to manage the database as a completely separate entity in Argo CD. This will ensure that updates to the backend application do not affect the database's lifecycle, preventing accidental redeployments or data loss, and aligning with best practices for stateful services.
-
----
+------
 
 ### 5. 📋 Complete Infrastructure as Code (IaC) - One-Stop Deployment Solution) - One-Stop Deployment Solution
 **Status:** 🚀 Planned  
