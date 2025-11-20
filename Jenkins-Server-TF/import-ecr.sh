@@ -18,11 +18,11 @@ fi
 
 echo ""
 echo "📥 Importing frontend repository..."
-terraform import aws_ecr_repository.frontend frontend
+terraform import -var-file="variables.tfvars" aws_ecr_repository.frontend frontend
 
 echo ""
 echo "📥 Importing backend repository..."
-terraform import aws_ecr_repository.backend backend
+terraform import -var-file="variables.tfvars" aws_ecr_repository.backend backend
 
 echo ""
 echo "✅ Import complete! Now you can manage ECR repositories with Terraform."
