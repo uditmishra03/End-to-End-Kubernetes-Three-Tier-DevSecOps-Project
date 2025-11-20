@@ -136,7 +136,7 @@ pipeline {
                 script {
                     echo '''
                     ╔════════════════════════════════════════════════════════╗
-                    ║      Infrastructure Validation Summary                ║
+                    ║      Infrastructure Validation Summary                 ║
                     ╠════════════════════════════════════════════════════════╣
                     ║  ✅ Terraform validation                              ║
                     ║  ✅ Kubernetes YAML validation                        ║
