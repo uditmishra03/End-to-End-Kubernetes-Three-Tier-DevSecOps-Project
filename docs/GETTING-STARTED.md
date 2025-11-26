@@ -432,36 +432,68 @@ helm install stable prometheus-community/kube-prometheus-stack -n default
 
 #### 10.2 Access Prometheus
 
+**Via LoadBalancer:**
 ```bash
-# Port forward Prometheus
-kubectl port-forward -n default svc/prometheus-stable-kube-prometheus-sta-prometheus 9090:9090
+# Prometheus is already exposed via LoadBalancer
+kubectl get svc stable-kube-prometheus-sta-prometheus -n default
 
+# Access URL:
+# http://aba486402dcc7489db934c692c09b53f-468856416.us-east-1.elb.amazonaws.com:9090
+```
+
+**Or via Port Forward:**
+```bash
+kubectl port-forward -n default svc/prometheus-operated 9090:9090
 # Access at: http://localhost:9090
 ```
 
 #### 10.3 Access Grafana
 
+**Via LoadBalancer (Recommended):**
 ```bash
-# Get Grafana admin password
-kubectl get secret -n default stable-grafana -o jsonpath="{.data.admin-password}" | base64 -d
-
 # Grafana is already exposed via LoadBalancer
 kubectl get svc stable-grafana -n default
-# Access via the EXTERNAL-IP URL, or use port-forward:
-kubectl port-forward -n default svc/stable-grafana 3000:80
 
-# Access at: http://localhost:3000
+# Access URL:
+# http://a2c6af4284b0a492ca5361c0f803d6d2-1545715117.us-east-1.elb.amazonaws.com
+```
+
+**Get Admin Password:**
+```bash
+kubectl get secret -n default stable-grafana -o jsonpath="{.data.admin-password}" | base64 -d
+echo
+
 # Username: admin
 # Password: <from above command>
 ```
 
-#### 10.4 Import Dashboards
+**Or via Port Forward:**
+```bash
+kubectl port-forward -n default svc/stable-grafana 3000:80
+# Access at: http://localhost:3000
+```
+
+#### 10.4 Configure Prometheus Data Source
+
+Before importing dashboards:
+1. **Login to Grafana**
+2. **Go to Configuration → Data Sources**
+3. **Add Prometheus data source:**
+   - URL: `http://prometheus-operated:9090`
+   - Click **Save & Test**
+
+#### 10.5 Import Dashboards
 
 In Grafana UI:
-1. Navigate to **Dashboards → Import**
-2. Import dashboard ID: `15760` (Kubernetes / Views / Global)
-3. Import dashboard ID: `15761` (Kubernetes / Views / Namespaces)
-4. Import dashboard ID: `15762` (Kubernetes / Views / Pods)
+1. **Click + → Import**
+2. **Import these dashboard IDs:**
+   - `15760` - Kubernetes / Views / Global
+   - `15761` - Kubernetes / Views / Namespaces
+   - `15762` - Kubernetes / Views / Pods
+   - `6417` - Kubernetes Cluster Monitoring
+   - `13770` - Kubernetes Cluster (Prometheus)
+3. **Select Prometheus data source** for each
+4. **Click Import**
 
 **Time:** ~15-20 minutes
 

@@ -1440,16 +1440,22 @@ kubectl get svc -n default | grep prometheus
 
 ### 12.2 Access Prometheus
 
-**Port Forward:**
+**Via LoadBalancer (Recommended):**
 ```bash
-kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 9090:9090
+# Prometheus is already exposed via LoadBalancer
+kubectl get svc stable-kube-prometheus-sta-prometheus -n default
+```
+
+**Access URL:** 
+```
+http://aba486402dcc7489db934c692c09b53f-468856416.us-east-1.elb.amazonaws.com:9090
+```
+
+**Or via Port Forward (for local access):**
+```bash
+kubectl port-forward -n default svc/prometheus-operated 9090:9090
 ```
 Access: `http://localhost:9090`
-
-**Or Expose via LoadBalancer:**
-```bash
-kubectl patch svc prometheus-stable-kube-prometheus-sta-prometheus -n default -p '{"spec": {"type": "LoadBalancer"}}'
-```
 
 ### 12.3 Key Metrics Collected
 
@@ -1479,27 +1485,76 @@ kube_pod_container_status_restarts_total{namespace="three-tier"}
 
 ## 13. Grafana Setup and Enhancements
 
-### 13.1 Access Grafana (Current Setup)
+### 13.1 Access Grafana
+
+**Via LoadBalancer (Recommended):**
+```bash
+# Grafana is already exposed via LoadBalancer
+kubectl get svc stable-grafana -n default
+```
+
+**Access URL:**
+```
+http://a2c6af4284b0a492ca5361c0f803d6d2-1545715117.us-east-1.elb.amazonaws.com
+```
 
 **Get Admin Password:**
 ```bash
 kubectl get secret -n default stable-grafana -o jsonpath="{.data.admin-password}" | base64 -d
+echo
 ```
 
-**Port Forward:**
+**Login Credentials:**
+- Username: `admin`
+- Password: (from command above)
+
+**Or via Port Forward (for local access):**
 ```bash
-kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80
+kubectl port-forward -n default svc/stable-grafana 3000:80
 ```
-Access: `http://localhost:3000` (admin / <password>)
+Access: `http://localhost:3000`
 
-**Or Expose via LoadBalancer:**
-```bash
-# Grafana LoadBalancer already exists
-kubectl get svc stable-grafana -n default
-# Access Grafana via the LoadBalancer URL shown in EXTERNAL-IP column
-```
+### 13.2 Configure Prometheus Data Source
 
-### 13.2 Current Dashboards
+Before importing dashboards, add Prometheus as a data source:
+
+1. **Login to Grafana** using the URL above
+2. **Go to Configuration** (gear icon) → **Data Sources**
+3. **Click "Add data source"**
+4. **Select "Prometheus"**
+5. **Configure:**
+   - Name: `Prometheus`
+   - URL: `http://prometheus-operated:9090`
+   - Access: `Server (default)`
+6. **Click "Save & Test"** - should show "Data source is working"
+
+### 13.3 Import Kubernetes Dashboards
+
+Import pre-built Kubernetes monitoring dashboards:
+
+1. **Click "+" (plus icon) → Import**
+2. **Enter Dashboard ID** and click **Load**:
+   - **15760** - Kubernetes / Views / Global
+   - **15761** - Kubernetes / Views / Namespaces
+   - **15762** - Kubernetes / Views / Pods
+   - **6417** - Kubernetes Cluster Monitoring (via Prometheus)
+   - **13770** - Kubernetes Cluster (Prometheus)
+3. **Select Prometheus data source** from dropdown
+4. **Click Import**
+5. **Repeat for each dashboard ID**
+
+**Recommended Dashboards:**
+
+| Dashboard ID | Name | Purpose |
+|--------------|------|----------|
+| 15760 | Kubernetes / Views / Global | Cluster overview |
+| 15761 | Kubernetes / Views / Namespaces | Namespace-level metrics |
+| 15762 | Kubernetes / Views / Pods | Pod-level details |
+| 6417 | Kubernetes Cluster Monitoring | Complete cluster health |
+| 13770 | Kubernetes Cluster | Node and pod metrics |
+| 315 | Kubernetes cluster monitoring | Alternative cluster view |
+
+### 13.4 Current Dashboards
 
 Pre-installed dashboards from kube-prometheus-stack:
 - **Kubernetes / Compute Resources / Cluster**
