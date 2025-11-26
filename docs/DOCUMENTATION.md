@@ -644,7 +644,181 @@ kubectl create secret docker-registry ecr-registry-secret \
 
 ### 8.1 Microservices Architecture Overview
 
-**[PLACEHOLDER: Application Architecture Diagram]**
+This project follows a **microservices architecture** with three separate repositories and is accessible via **HTTPS** using a custom domain with AWS Certificate Manager.
+
+#### HTTPS Request Flow Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                              END USER                                    │
+│                       (Browser / Mobile Device)                          │
+└────────────────────────────────┬────────────────────────────────────────┘
+                                 │
+                                 │ HTTPS Request (Port 443)
+                                 │ https://todo.tarang.cloud
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           DNS RESOLUTION                                 │
+│                         (Hostinger DNS / Route53)                        │
+│                                                                          │
+│  CNAME: todo.tarang.cloud → k8s-threetie-mainlb-XXX.elb.amazonaws.com  │
+└────────────────────────────────┬────────────────────────────────────────┘
+                                 │
+                                 │ Resolved ALB DNS
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                     AWS APPLICATION LOAD BALANCER                        │
+│                         (Internet-Facing ALB)                            │
+│                                                                          │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │  SSL/TLS Termination                                            │   │
+│  │  Certificate: *.tarang.cloud (ACM)                              │   │
+│  │  ARN: arn:aws:acm:us-east-1:296062548155:certificate/...       │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+│  Listeners:                                                              │
+│  ├─ Port 80 (HTTP)  → Redirect to HTTPS (Port 443)                      │
+│  └─ Port 443 (HTTPS) → Forward to Target Groups                         │
+└────────────────────────────────┬────────────────────────────────────────┘
+                                 │
+                                 │ HTTP (within VPC)
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    AWS ALB INGRESS CONTROLLER                            │
+│                         (Kubernetes Ingress)                             │
+│                                                                          │
+│  Host-Based Routing: todo.tarang.cloud                                  │
+│  Path-Based Routing:                                                    │
+│    ├─ /api/*      → Backend Service (api)                               │
+│    ├─ /healthz    → Backend Health Check                                │
+│    ├─ /ready      → Backend Readiness                                   │
+│    ├─ /started    → Backend Startup                                     │
+│    └─ /*          → Frontend Service                                    │
+└────────────────┬──────────────────────┬─────────────────────────────────┘
+                 │                      │
+     ┌───────────┴───────┐   ┌──────────┴──────────┐
+     │                   │   │                     │
+     ▼                   │   ▼                     │
+┌─────────────────┐      │  ┌─────────────────┐   │
+│  Frontend       │      │  │  Backend (API)  │   │
+│  Service        │      │  │  Service        │   │
+│  (ClusterIP)    │      │  │  (ClusterIP)    │   │
+│  Port: 80       │      │  │  Port: 3500     │   │
+└────────┬────────┘      │  └────────┬────────┘   │
+         │               │           │            │
+         ▼               │           ▼            │
+┌─────────────────┐      │  ┌─────────────────┐   │
+│  Frontend Pod   │      │  │  Backend Pod    │   │
+│  ┌───────────┐  │      │  │  ┌───────────┐  │   │
+│  │   Nginx   │  │      │  │  │  Node.js  │  │   │
+│  │  Serving  │  │      │  │  │  Express  │  │   │
+│  │  React    │  │      │  │  │    API    │  │   │
+│  │   App     │  │      │  │  └─────┬─────┘  │   │
+│  └───────────┘  │      │  │        │        │   │
+│                 │      │  │  MongoDB Client │   │
+│  Environment:   │      │  │  Connection     │   │
+│  REACT_APP_     │      │  │  String         │   │
+│  BACKEND_URL=   │      │  └────────┬────────┘   │
+│  https://todo.  │      │           │            │
+│  tarang.cloud/  │      │           │            │
+│  api/tasks      │      │           │            │
+└─────────────────┘      │           │            │
+         │               │           │            │
+         │ HTTPS API Call│           │            │
+         │ (via ALB)     │           │            │
+         └───────────────┘           │            │
+                                     │            │
+                                     ▼            │
+                            ┌─────────────────┐   │
+                            │  MongoDB        │   │
+                            │  Service        │   │
+                            │  (ClusterIP)    │   │
+                            │  Port: 27017    │   │
+                            └────────┬────────┘   │
+                                     │            │
+                                     ▼            │
+                            ┌─────────────────┐   │
+                            │  MongoDB Pod    │   │
+                            │  (StatefulSet)  │   │
+                            │  ┌───────────┐  │   │
+                            │  │  MongoDB  │  │   │
+                            │  │   4.4.x   │  │   │
+                            │  └─────┬─────┘  │   │
+                            │        │        │   │
+                            │  Persistent     │   │
+                            │  Volume Claim   │   │
+                            │  (10Gi)         │   │
+                            └────────┬────────┘   │
+                                     │            │
+                                     ▼            │
+                            ┌─────────────────┐   │
+                            │  EBS Volume     │   │
+                            │  (gp3)          │   │
+                            │  Data Storage   │   │
+                            └─────────────────┘   │
+                                                  │
+        ┌─────────────────────────────────────────┘
+        │
+        ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          ARGOCD GITOPS                                   │
+│                    (Continuous Deployment)                               │
+│                                                                          │
+│  ┌────────────────────────────────────────────────────────────────┐    │
+│  │  ArgoCD Image Updater                                          │    │
+│  │  Monitors ECR repositories for new images                      │    │
+│  │  - frontend: YYYYMMDD-BUILD format                             │    │
+│  │  - backend: YYYYMMDD-BUILD format                              │    │
+│  │  Auto-updates deployment manifests when new images detected    │    │
+│  └────────────────────────────────────────────────────────────────┘    │
+│                                                                          │
+│  Applications:                                                           │
+│  ├─ frontend-app   (three-tier-fe repo)                                 │
+│  ├─ backend-app    (three-tier-be repo)                                 │
+│  ├─ database-app   (infrastructure repo)                                │
+│  └─ ingress-app    (infrastructure repo)                                │
+└─────────────────────────────────────────────────────────────────────────┘
+
+**Security Features:**
+├─ HTTPS/TLS Encryption (End-to-End)
+├─ AWS Certificate Manager (Free SSL Certificate)
+├─ Automatic HTTP → HTTPS Redirect
+├─ Private EKS Cluster (No Direct Internet Access)
+├─ ALB in Public Subnets (Internet-Facing)
+├─ Application Pods in Private Subnets
+└─ ECR Image Scanning (Trivy + SonarQube)
+```
+
+**Key Architectural Highlights:**
+
+1. **SSL/TLS Termination at ALB:**
+   - HTTPS connections terminate at the AWS ALB
+   - ALB uses ACM-managed wildcard certificate (`*.tarang.cloud`)
+   - Traffic within VPC remains unencrypted (HTTP) for performance
+
+2. **Host-Based & Path-Based Routing:**
+   - Host: `todo.tarang.cloud` ensures requests reach correct application
+   - Path `/api/*` routes to backend service
+   - Path `/*` (default) routes to frontend service
+
+3. **Frontend-Backend Communication:**
+   - Frontend makes HTTPS API calls back through the ALB
+   - Environment variable: `REACT_APP_BACKEND_URL=https://todo.tarang.cloud/api/tasks`
+   - Ensures same-origin policy compliance and avoids CORS issues
+
+4. **GitOps Workflow:**
+   - ArgoCD monitors 4 separate applications
+   - Image Updater automatically detects new ECR images
+   - Zero-touch deployments via Git commit updates
+
+5. **Data Persistence:**
+   - MongoDB uses StatefulSet with PersistentVolumeClaim
+   - EBS gp3 volumes provide durable storage
+   - Data survives pod restarts and rescheduling
+
+**Access URL:** https://todo.tarang.cloud
+
+---
 
 This project follows a **microservices architecture** with three separate repositories:
 

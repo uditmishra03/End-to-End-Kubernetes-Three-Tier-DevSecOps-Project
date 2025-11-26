@@ -21,7 +21,8 @@ This document consolidates all planned enhancements, improvements, and future sc
 | Separate Backend and Frontend Repositories (Phased Approach)   | ✅ Phase 1 & 2 Completed        | High          |
 | Infrastructure Validation Pipeline                             | ✅ Completed                    | High          |
 | ECR Lifecycle Policy for Automated Image Cleanup               | ✅ Completed                    | Medium        |
-| HTTPS Implementation                                           | 🚀 Planned                      | Medium        |
+| HTTPS Implementation with Custom Domain                         | ✅ Completed                    | Medium        |
+| User Session Management & Data Isolation                        | 🚀 Planned                      | High          |
 | Automation Scripts Testing & Enhancement                       | 🔄 Testing & Enhancement Phase  | High          |
 | Complete Infrastructure as Code (IaC)                          | 🚀 Planned                      | High          |
 | Complete Documentation & Portfolio Readiness                   | 🔄 Ongoing                      | High          |
@@ -126,44 +127,208 @@ With these two fixes, the end-to-end continuous deployment workflow for the back
 
 ---
 
-### 3. 🔐 HTTPS Implementation
-**Status:** 🚀 Planned  
+### 3. ✅ [COMPLETED] HTTPS Implementation with Custom Domain
+**Status:** ✅ **Completed** (November 26, 2025)  
 **Priority:** Medium  
-**Complexity:** Medium  
-**Timeline:** Q2 2026  
-**Estimated Time:** 2-3 hours
+**Impact:** Successfully secured application with HTTPS using AWS Certificate Manager and custom domain `todo.tarang.cloud`, enabling encrypted traffic and production-ready deployment.
 
-**Description:**
-Secure application with HTTPS using AWS Certificate Manager (ACM) and custom domain.
+#### **Implementation Completed:**
+Successfully implemented end-to-end HTTPS encryption with custom domain, ACM certificate, and proper frontend-backend communication.
 
-**Implementation Steps:**
-1. Register domain name (Route 53 or external registrar)
-2. Request SSL/TLS certificate in ACM
-3. Validate certificate via DNS validation
-4. Update ingress.yaml with HTTPS annotations:
-   ```yaml
-   annotations:
-     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
-     alb.ingress.kubernetes.io/ssl-redirect: '443'
-     alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:...
-   ```
-5. Configure Route 53 DNS records
-6. Test HTTPS access and automatic HTTP→HTTPS redirect
+**Certificate Details:**
+- Domain: `*.tarang.cloud` (wildcard)
+- Certificate ARN: `arn:aws:acm:us-east-1:296062548155:certificate/d96a5918-4b5a-4c40-981a-f78468a3d3d8`
+- Validation: DNS (Hostinger)
+- Status: Issued & Active
 
-**Benefits:**
-- 🔒 Encrypted traffic (production-ready)
-- ✅ Professional appearance for portfolio
-- ✅ Browser security warnings eliminated
-- ✅ SEO benefits
-- ✅ Compliance with security best practices
+**Ingress Configuration:**
+```yaml
+annotations:
+  alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+  alb.ingress.kubernetes.io/ssl-redirect: '443'
+  alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:296062548155:certificate/d96a5918-4b5a-4c40-981a-f78468a3d3d8
+spec:
+  rules:
+  - host: todo.tarang.cloud
+```
 
-**Cost Impact:** ~$12-15/year (domain name only, ACM certificate is free)
+**Frontend API Configuration:**
+```yaml
+env:
+- name: REACT_APP_BACKEND_URL
+  value: "https://todo.tarang.cloud/api/tasks"
+```
 
-**Detailed Fix Documentation:** See [fixes/INFRASTRUCTURE-OPTIMIZATION-AND-FIXES.md](./fixes/INFRASTRUCTURE-OPTIMIZATION-AND-FIXES.md) for infrastructure optimization details.
+#### **Request Flow Architecture:**
+
+```
+User (Browser)
+    ↓ HTTPS (Port 443)
+https://todo.tarang.cloud (DNS CNAME)
+    ↓ SSL/TLS Termination
+AWS ALB (ACM Certificate: *.tarang.cloud)
+    ↓ HTTP→HTTPS Redirect (Port 80→443)
+Ingress Controller (Host: todo.tarang.cloud)
+    ↓ Path-Based Routing
+    ├─ / → Frontend Service (Port 80)
+    │        ↓ HTTPS API Call
+    │        https://todo.tarang.cloud/api/tasks
+    │        ↓
+    └─ /api → Backend Service (Port 3500)
+               ↓ MongoDB Connection
+               MongoDB Service (Port 27017)
+               ↓ Persistent Storage
+               MongoDB StatefulSet (PVC)
+```
+
+#### **Challenges Resolved:**
+1. **CAA Record Issues:** Added `issuewild "amazon.com"` for wildcard certificate support
+2. **DNS Validation:** Fixed CNAME format for Hostinger (prefix-only, no domain)
+3. **Frontend-Backend Communication:** Updated REACT_APP_BACKEND_URL to use HTTPS domain
+4. **Mixed Content Errors:** Ensured all API calls use HTTPS protocol
+
+**Outcome:**
+- ✅ Full HTTPS encryption end-to-end
+- ✅ Custom domain with professional branding
+- ✅ Automatic HTTP→HTTPS redirect
+- ✅ Valid SSL certificate (browser shows 🔒 padlock)
+- ✅ Frontend-Backend communication over HTTPS
+- ✅ Production-ready secure application
+
+**Live Application:** https://todo.tarang.cloud
 
 ---
 
-### 4. 🔧 Automation Scripts Testing & Enhancement (IN PROGRESS)
+### 4. 🔐 User Session Management & Data Isolation
+**Status:** 🚀 Planned  
+**Priority:** High  
+**Complexity:** High  
+**Timeline:** Q1 2026  
+**Estimated Time:** 8-12 hours
+
+#### **Current Issue:**
+The application currently **does not have user session management**. All users share the same MongoDB collection, resulting in:
+- ❌ **No user isolation:** Everyone sees the same tasks
+- ❌ **No privacy:** Tasks created on mobile appear on web and vice versa
+- ❌ **No authentication:** Anyone can add/delete any task
+- ❌ **No multi-tenancy:** Cannot distinguish between different users
+
+#### **Observed Behavior:**
+- Accessing `https://todo.tarang.cloud` on mobile phone shows **exact same data** as web browser
+- Changes made on mobile **immediately reflect** on web (and vice versa)
+- No login/logout functionality
+- All users operate on a single global task list
+
+#### **Proposed Solution:**
+
+**Phase 1: User Authentication (4-6 hours)**
+
+1. **Backend: Add User Schema & JWT Auth**
+```javascript
+// User Schema
+const userSchema = new mongoose.Schema({
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true }, // bcrypt hashed
+  name: String,
+  createdAt: { type: Date, default: Date.now }
+});
+
+// Task Schema with user reference
+const taskSchema = new mongoose.Schema({
+  title: String,
+  completed: Boolean,
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // NEW
+  createdAt: Date
+});
+
+// Authentication Middleware
+const authenticateUser = (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+  
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.userId = decoded.userId;
+    next();
+  } catch (err) {
+    res.status(401).json({ error: 'Invalid token' });
+  }
+};
+
+// User-Scoped Task Queries
+app.get('/api/tasks', authenticateUser, async (req, res) => {
+  const tasks = await Task.find({ userId: req.userId });
+  res.json(tasks);
+});
+
+app.post('/api/tasks', authenticateUser, async (req, res) => {
+  const task = new Task({
+    ...req.body,
+    userId: req.userId
+  });
+  await task.save();
+  res.json(task);
+});
+```
+
+2. **Frontend: Add Login/Registration UI**
+- Login page component
+- Registration form
+- JWT token storage (localStorage)
+- Protected routes
+- Authentication state management (Context/Redux)
+
+**Phase 2: Data Isolation (2-3 hours)**
+
+- All API calls include JWT token in Authorization header
+- Backend filters all queries by `userId` from JWT
+- Each user sees only their own tasks
+- Logout functionality (clear token)
+
+**Phase 3: Security Enhancements (2-3 hours)**
+
+- Password hashing with bcrypt
+- Rate limiting (prevent brute force)
+- Refresh tokens for session management
+- Password reset functionality
+- Input validation & sanitization
+
+#### **Architecture Changes:**
+
+**Before (Current):**
+```
+Browser 1 → API → MongoDB (Single Collection: tasks)
+Browser 2 → API → MongoDB (Same Collection)
+Mobile   → API → MongoDB (Same Collection)
+❌ All users see all tasks
+```
+
+**After (With Sessions):**
+```
+Browser 1 (User A) → JWT → API → MongoDB (tasks WHERE userId='A')
+Browser 2 (User B) → JWT → API → MongoDB (tasks WHERE userId='B')
+Mobile   (User A) → JWT → API → MongoDB (tasks WHERE userId='A')
+✅ Each user sees only their own tasks
+```
+
+**Benefits:**
+- ✅ User privacy and data isolation
+- ✅ True multi-tenant application
+- ✅ Production-ready authentication
+- ✅ Portfolio demonstrates full-stack auth
+- ✅ Security best practices (JWT, bcrypt, HTTPS)
+
+**Technical Stack:**
+- Backend: JWT (jsonwebtoken), bcrypt, express-validator
+- Frontend: React Context/Redux, protected routes
+- Database: MongoDB user collection + userId foreign key
+- Security: HTTPS (✅ done), CORS, rate limiting
+
+**Cost Impact:** None (no additional AWS resources)
+
+---
+
+### 5. 🔧 Automation Scripts Testing & Enhancement (IN PROGRESS)
 **Status:** 🔄 Testing & Enhancement Phase  
 **Priority:** High  
 **Complexity:** Medium  
