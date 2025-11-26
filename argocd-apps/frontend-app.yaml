@@ -5,7 +5,7 @@ metadata:
   namespace: argocd
   annotations:
     argocd-image-updater.argoproj.io/image-list: frontend=296062548155.dkr.ecr.us-east-1.amazonaws.com/frontend
-    argocd-image-updater.argoproj.io/frontend.update-strategy: latest
+    argocd-image-updater.argoproj.io/frontend.update-strategy: newest-build
     argocd-image-updater.argoproj.io/frontend.allow-tags: regexp:^[0-9-]+$
     argocd-image-updater.argoproj.io/frontend.force-update: "true"
     argocd-image-updater.argoproj.io/write-back-method: argocd
