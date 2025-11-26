@@ -1,4 +1,4 @@
-# Three-Tier Web Application Deployment on AWS EKS using AWS EKS, ArgoCD, Prometheus, Grafana, and Jenkins
+# Three-Tier Web Application Deployment on AWS EKS using AWS EKS, ArgoCD, Prometheus, Grafana, and Jenkins
 [![LinkedIn](https://img.shields.io/badge/Connect%20with%20me%20on-LinkedIn-blue.svg)](https://www.linkedin.com/in/uditmishra03/)
 [![GitHub](https://img.shields.io/badge/github-repo-blue?logo=github)](https://github.com/uditmishra03)
 [![AWS](https://img.shields.io/badge/AWS-%F0%9F%9B%A1-orange)](https://aws.amazon.com)
@@ -9,6 +9,23 @@
 Welcome to the Three-Tier Web Application Deployment project! 🚀
 
 This repository hosts the implementation of a Three-Tier Web App using ReactJS, NodeJS, and MongoDB, deployed on AWS EKS. The project covers a wide range of tools and practices for a robust and scalable DevOps setup.
+
+## 🚀 Getting Started
+
+**New to this project?** Follow these steps:
+
+1. **[Getting Started Guide](docs/GETTING-STARTED.md)** - Complete deployment from scratch (Steps 1-11)
+2. **[Complete Documentation](docs/DOCUMENTATION.md)** - Detailed technical reference for each component
+3. **[Architecture Diagrams](assets/)** - Visual system architecture (draw.io & Mermaid)
+
+### Quick Links:
+- 📖 [Getting Started Guide](docs/GETTING-STARTED.md) - **Start here for step-by-step setup**
+- 📚 [Complete Documentation](docs/DOCUMENTATION.md) - In-depth technical details
+- 🎯 [Future Enhancements](docs/FUTURE-ENHANCEMENTS.md) - Planned features
+- 💰 [Cost Management](docs/AWS-COST-MANAGEMENT.md) - AWS cost optimization
+- 🔧 [Troubleshooting](docs/DOCUMENTATION.md#15-troubleshooting-and-maintenance) - Common issues and fixes
+
+---
 
 ## 🏗️ Architecture Overview
 

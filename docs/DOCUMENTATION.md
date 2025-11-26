@@ -3,9 +3,24 @@
 ## Complete Implementation Guide
 
 **Version:** 1.0  
-**Last Updated:** November 20, 2025  
+**Last Updated:** November 26, 2025  
 **Project Owner:** uditmishra03  
 **Repository:** [End-to-End-Kubernetes-Three-Tier-DevSecOps-Project](https://github.com/uditmishra03/End-to-End-Kubernetes-Three-Tier-DevSecOps-Project)
+
+---
+
+## 🚀 Quick Start
+
+**New to this project?** Start with the **[Getting Started Guide](./GETTING-STARTED.md)** for step-by-step deployment instructions from scratch to production.
+
+The Getting Started guide provides:
+- ✅ Sequential deployment order (Steps 1-11)
+- ✅ Time estimates for each phase
+- ✅ Verification checkpoints
+- ✅ Common troubleshooting tips
+- ✅ Complete workflow overview
+
+**This document** provides detailed technical documentation for each component. Use it as a reference after completing the Getting Started guide.
 
 ---
 
