@@ -4,11 +4,9 @@
 [![AWS](https://img.shields.io/badge/AWS-%F0%9F%9B%A1-orange)](https://aws.amazon.com)
 [![Terraform](https://img.shields.io/badge/Terraform-%E2%9C%A8-lightgrey)](https://www.terraform.io)
 
-![Three-Tier Banner](assets/Three-Tier.gif)
+## 📖 Project Overview
 
-Welcome to the Three-Tier Web Application Deployment project! 🚀
-
-This repository hosts the implementation of a Three-Tier Web App using ReactJS, NodeJS, and MongoDB, deployed on AWS EKS. The project covers a wide range of tools and practices for a robust and scalable DevOps setup.
+This project demonstrates a **production-grade DevSecOps implementation** of a three-tier microservices application (React frontend, Node.js backend, MongoDB database) on **AWS EKS**. It showcases end-to-end automation with **Jenkins CI/CD pipelines**, **security scanning** (SonarQube, Trivy), **GitOps deployment** via ArgoCD Image Updater, and comprehensive **monitoring** using Prometheus and Grafana. Infrastructure is provisioned using **Terraform**, following industry best practices for scalability, security, and maintainability.
 
 ## 🚀 Getting Started
 
@@ -85,6 +83,23 @@ Developer Code Push
 
     Monitoring: Prometheus + Grafana ──► All Pods & Services
 ```
+
+<details>
+<summary>📐 <b>View Detailed System Architecture</b></summary>
+
+For a comprehensive technical view including all components, namespaces, ports, services, and monitoring stack, see the [Complete System Architecture in DOCUMENTATION.md](docs/DOCUMENTATION.md#21-system-architecture).
+
+The detailed architecture covers:
+- Complete CI/CD pipeline flow with Jenkins stages
+- ECR registry configuration and lifecycle policies
+- ArgoCD GitOps setup with Image Updater
+- Kubernetes cluster components (pods, services, ingress)
+- Monitoring and observability stack
+- End-to-end data flow from developer to end user
+
+</details>
+
+---
 
 ## Table of Contents
 - [Architecture Overview](#️-architecture-overview)
