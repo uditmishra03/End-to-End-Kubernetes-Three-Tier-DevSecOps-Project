@@ -230,7 +230,7 @@ End-to-end **DevSecOps** implementation for a **Three-Tier Web Application** on 
 └─────────────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────────────┐
-│                     MONITORING & OBSERVABILITY (Namespace: monitoring)              │
+│                     MONITORING & OBSERVABILITY (Namespace: default)                 │
 │  ┌──────────────────────┐              ┌──────────────────────┐                     │
 │  │   Prometheus         │              │   Grafana            │                     │
 │  │   - Metrics Collection──────────────►  - Dashboards        │                     │
@@ -1434,8 +1434,8 @@ helm install prometheus prometheus-community/kube-prometheus-stack \
   --namespace monitoring
 
 # Verify installation
-kubectl get pods -n monitoring
-kubectl get svc -n monitoring
+kubectl get pods -n default | grep prometheus
+kubectl get svc -n default | grep prometheus
 ```
 
 ### 12.2 Access Prometheus
@@ -1448,7 +1448,7 @@ Access: `http://localhost:9090`
 
 **Or Expose via LoadBalancer:**
 ```bash
-kubectl patch svc prometheus-kube-prometheus-prometheus -n monitoring -p '{"spec": {"type": "LoadBalancer"}}'
+kubectl patch svc prometheus-stable-kube-prometheus-sta-prometheus -n default -p '{"spec": {"type": "LoadBalancer"}}'
 ```
 
 ### 12.3 Key Metrics Collected
@@ -1483,7 +1483,7 @@ kube_pod_container_status_restarts_total{namespace="three-tier"}
 
 **Get Admin Password:**
 ```bash
-kubectl get secret -n monitoring prometheus-grafana -o jsonpath="{.data.admin-password}" | base64 -d
+kubectl get secret -n default stable-grafana -o jsonpath="{.data.admin-password}" | base64 -d
 ```
 
 **Port Forward:**
@@ -1494,8 +1494,9 @@ Access: `http://localhost:3000` (admin / <password>)
 
 **Or Expose via LoadBalancer:**
 ```bash
-kubectl patch svc prometheus-grafana -n monitoring -p '{"spec": {"type": "LoadBalancer"}}'
-kubectl get svc prometheus-grafana -n monitoring
+# Grafana LoadBalancer already exists
+kubectl get svc stable-grafana -n default
+# Access Grafana via the LoadBalancer URL shown in EXTERNAL-IP column
 ```
 
 ### 13.2 Current Dashboards
@@ -1645,7 +1646,7 @@ eksctl upgrade cluster --name three-tier-cluster
 
 # Update Helm charts
 helm repo update
-helm upgrade prometheus prometheus-community/kube-prometheus-stack -n monitoring
+helm upgrade stable prometheus-community/kube-prometheus-stack -n default
 
 # Review and cleanup unused images
 aws ecr list-images --repository-name backend
@@ -1694,7 +1695,7 @@ curl http://<grafana-url>/api/health
 | SonarQube | `docker logs sonar` |
 | Kubernetes Pods | `kubectl logs <pod-name> -n three-tier` |
 | ArgoCD | `kubectl logs -n argocd deployment/argocd-server` |
-| Prometheus | `kubectl logs -n monitoring prometheus-<pod>` |
+| Prometheus | `kubectl logs -n default prometheus-stable-kube-prometheus-sta-prometheus-0` |
 
 ### 15.5 Disaster Recovery
 

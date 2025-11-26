@@ -426,16 +426,15 @@ Deploy Prometheus and Grafana for observability.
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo update
 
-# Install Prometheus
-kubectl create namespace monitoring
-helm install prometheus prometheus-community/kube-prometheus-stack -n monitoring
+# Install Prometheus (installs to default namespace)
+helm install stable prometheus-community/kube-prometheus-stack -n default
 ```
 
 #### 10.2 Access Prometheus
 
 ```bash
 # Port forward Prometheus
-kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 9090:9090
+kubectl port-forward -n default svc/prometheus-stable-kube-prometheus-sta-prometheus 9090:9090
 
 # Access at: http://localhost:9090
 ```
@@ -444,10 +443,12 @@ kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 909
 
 ```bash
 # Get Grafana admin password
-kubectl get secret -n monitoring prometheus-grafana -o jsonpath="{.data.admin-password}" | base64 -d
+kubectl get secret -n default stable-grafana -o jsonpath="{.data.admin-password}" | base64 -d
 
-# Port forward Grafana
-kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80
+# Grafana is already exposed via LoadBalancer
+kubectl get svc stable-grafana -n default
+# Access via the EXTERNAL-IP URL, or use port-forward:
+kubectl port-forward -n default svc/stable-grafana 3000:80
 
 # Access at: http://localhost:3000
 # Username: admin
