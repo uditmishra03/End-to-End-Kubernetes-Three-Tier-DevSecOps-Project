@@ -1,0 +1,107 @@
+%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#dae8fc','primaryTextColor':'#000','primaryBorderColor':'#6c8ebf','lineColor':'#666','secondaryColor':'#fff2cc','tertiaryColor':'#d5e8d4'}}}%%
+
+graph TB
+    subgraph Developer["👨‍💻 DEVELOPER"]
+        DEV[Git Push]
+    end
+    
+    subgraph GitHub["📦 GITHUB REPOSITORIES"]
+        GH1["🔧 Infrastructure Repo<br/>• K8s Manifests<br/>• Database<br/>• Ingress<br/>• ArgoCD Configs<br/>• Terraform IaC"]
+        GH2["⚛️ Frontend Repo<br/>(three-tier-fe)<br/>• React Frontend<br/>• Nginx Config<br/>• K8s Manifests<br/>• Jenkinsfile<br/>• Dockerfile"]
+        GH3["🟢 Backend Repo<br/>(three-tier-be)<br/>• Node.js Backend<br/>• Express API<br/>• K8s Manifests<br/>• Jenkinsfile<br/>• Dockerfile"]
+    end
+    
+    subgraph Jenkins["🔨 JENKINS CI/CD SERVER (EC2)"]
+        J1["Frontend MBP<br/>• SonarQube<br/>• Trivy Scan<br/>• Docker Build<br/>• ECR Push"]
+        J2["Backend MBP<br/>• SonarQube<br/>• Trivy Scan<br/>• Docker Build<br/>• ECR Push"]
+        J3["Infrastructure<br/>• Terraform<br/>• Scripts<br/>• Monitoring"]
+    end
+    
+    subgraph ECR["🐳 AWS ECR REGISTRY"]
+        ECR1["Frontend Repository<br/>• Tagged Images<br/>• Lifecycle Policy<br/>(Delete untagged > 5 days)"]
+        ECR2["Backend Repository<br/>• Tagged Images<br/>• Lifecycle Policy<br/>(Delete untagged > 5 days)"]
+    end
+    
+    subgraph ArgoCD["🔄 ARGOCD (GitOps)"]
+        UPDATER["📡 Image Updater<br/>Monitors ECR for New Tags"]
+        ARGO1["Frontend App<br/>• Auto-sync: true<br/>• Image Updater<br/>• Tag regex: ^[0-9-]+$<br/>• Direct cluster updates"]
+        ARGO2["Backend App<br/>• Auto-sync: true<br/>• Image Updater<br/>• Tag regex: ^[0-9-]+$<br/>• Direct cluster updates"]
+    end
+    
+    subgraph EKS["☸️ AWS EKS CLUSTER"]
+        subgraph NS["Namespace: three-tier"]
+            POD1["⚛️ Frontend Pod(s)<br/>• React App<br/>• Nginx<br/>• Port: 3000"]
+            POD2["🟢 Backend Pod(s)<br/>• Node.js API<br/>• Express<br/>• Port: 3500"]
+            POD3["🍃 MongoDB Pod(s)<br/>• Database<br/>• Persistent Volume<br/>• Port: 27017"]
+            SVC["🔗 Services<br/>• frontend-svc (ClusterIP)<br/>• backend-svc (ClusterIP)<br/>• mongodb-svc (ClusterIP)"]
+            ING["🌐 Ingress<br/>AWS Load Balancer Controller<br/>• ALB<br/>• Path-based routing"]
+        end
+    end
+    
+    ALB["⚡ AWS APPLICATION LOAD BALANCER<br/>http://&lt;alb-dns&gt; → Frontend<br/>http://&lt;alb-dns&gt;/api → Backend"]
+    
+    USERS["👥 END USERS"]
+    
+    subgraph Monitoring["📊 MONITORING & OBSERVABILITY"]
+        PROM["📈 Prometheus<br/>• Metrics Collection<br/>• Service Discovery<br/>• Alert Rules"]
+        GRAF["📉 Grafana<br/>• Dashboards<br/>• Visualizations<br/>• Alerting"]
+    end
+    
+    %% Connections - Developer to GitHub
+    DEV -->|Push Code| GH1
+    DEV -->|Push Code| GH2
+    DEV -->|Push Code| GH3
+    
+    %% GitHub to Jenkins (Webhooks)
+    GH1 -.->|Webhook| J3
+    GH2 -.->|Webhook| J1
+    GH3 -.->|Webhook| J2
+    
+    %% Jenkins to ECR
+    J1 -->|Push Image<br/>YYYYMMDD-BUILD| ECR1
+    J2 -->|Push Image<br/>YYYYMMDD-BUILD| ECR2
+    
+    %% ECR to ArgoCD
+    ECR1 & ECR2 -->|Monitor Tags| UPDATER
+    UPDATER --> ARGO1
+    UPDATER --> ARGO2
+    
+    %% ArgoCD to EKS
+    ARGO1 -->|Deploy| POD1
+    ARGO2 -->|Deploy| POD2
+    
+    %% EKS Internal Connections
+    POD1 --> SVC
+    POD2 --> SVC
+    POD3 <-->|DB Connection| POD2
+    SVC --> ING
+    
+    %% EKS to ALB
+    ING -->|Internet Traffic| ALB
+    
+    %% ALB to Users
+    ALB -->|HTTP/HTTPS| USERS
+    
+    %% Monitoring Connections
+    POD1 & POD2 & POD3 -.->|Scrape Metrics| PROM
+    PROM --> GRAF
+    
+    %% Styling
+    classDef githubStyle fill:#dae8fc,stroke:#6c8ebf,stroke-width:2px
+    classDef jenkinsStyle fill:#fff2cc,stroke:#d6b656,stroke-width:2px
+    classDef ecrStyle fill:#f8cecc,stroke:#b85450,stroke-width:2px
+    classDef argoStyle fill:#d5e8d4,stroke:#82b366,stroke-width:2px
+    classDef eksStyle fill:#e1d5e7,stroke:#9673a6,stroke-width:2px
+    classDef podStyle fill:#cce5ff,stroke:#36393d,stroke-width:2px
+    classDef monStyle fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    classDef albStyle fill:#ffccbc,stroke:#ff5722,stroke-width:2px
+    classDef userStyle fill:#b0bec5,stroke:#455a64,stroke-width:2px
+    
+    class GH1,GH2,GH3 githubStyle
+    class J1,J2,J3 jenkinsStyle
+    class ECR1,ECR2 ecrStyle
+    class UPDATER,ARGO1,ARGO2 argoStyle
+    class POD1,POD2,POD3,SVC,ING podStyle
+    class PROM,GRAF monStyle
+    class ALB albStyle
+    class USERS userStyle
