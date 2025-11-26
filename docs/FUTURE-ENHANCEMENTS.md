@@ -22,10 +22,10 @@ This document consolidates all planned enhancements, improvements, and future sc
 | Infrastructure Validation Pipeline                             | ✅ Completed                    | High          |
 | ECR Lifecycle Policy for Automated Image Cleanup               | ✅ Completed                    | Medium        |
 | HTTPS Implementation with Custom Domain                         | ✅ Completed                    | Medium        |
-| User Session Management & Data Isolation                        | 🚀 Planned                      | High          |
-| AWS Secrets Manager & External Secrets Operator                 | 🚀 Planned                      | High          |
-| Automation Scripts Testing & Enhancement                       | 🔄 Testing & Enhancement Phase  | High          |
-| Complete Infrastructure as Code (IaC)                          | 🚀 Planned                      | High          |
+| User Session Management & Data Isolation                        | 🚀 Planned                      | Medium        |
+| AWS Secrets Manager & External Secrets Operator                 | 🚀 Planned                      | Medium        |
+| Automation Scripts Testing & Enhancement                       | 🔄 Testing & Enhancement Phase  | Low           |
+| Complete Infrastructure as Code (IaC)                          | 🚀 Planned                      | Medium        |
 | Complete Documentation & Portfolio Readiness                   | 🔄 Ongoing                      | High          |
 | IAM Roles for Service Accounts (IRSA)                          | 🚀 Planned                      | High          |
 | Prometheus & Grafana Production Setup                          | 🚀 Planned                      | Medium        |
@@ -202,9 +202,9 @@ Ingress Controller (Host: todo.tarang.cloud)
 
 ### 4. 🔐 User Session Management & Data Isolation
 **Status:** 🚀 Planned  
-**Priority:** High  
+**Priority:** Medium  
 **Complexity:** High  
-**Timeline:** Q1 2026  
+**Timeline:** Q2 2026  
 **Estimated Time:** 8-12 hours
 
 #### **Current Issue:**
@@ -331,9 +331,9 @@ Mobile   (User A) → JWT → API → MongoDB (tasks WHERE userId='A')
 
 ### 5. 🔧 Automation Scripts Testing & Enhancement (IN PROGRESS)
 **Status:** 🔄 Testing & Enhancement Phase  
-**Priority:** High  
+**Priority:** Low  
 **Complexity:** Medium  
-**Timeline:** Q4 2025 (Current)  
+**Timeline:** Future (Deferred)  
 **Estimated Time:** 4-6 hours
 
 **Description:**
@@ -733,11 +733,11 @@ Implemented automated cleanup of untagged Docker images (cache layers) to reduce
 
 ------
 
-### 5. 📋 Complete Infrastructure as Code (IaC) - One-Stop Deployment Solution) - One-Stop Deployment Solution
+### 5. 📋 Complete Infrastructure as Code (IaC) - One-Stop Deployment Solution
 **Status:** 🚀 Planned  
-**Priority:** High  
+**Priority:** Medium  
 **Complexity:** High  
-**Timeline:** Q1 2026  
+**Timeline:** Q2 2026  
 **Estimated Time:** 12-16 hours
 
 **Description:**
@@ -2006,9 +2006,9 @@ Advanced Jenkins pipeline features and shared libraries.
 
 ### 18. 🔐 AWS Secrets Manager & External Secrets Operator
 **Status:** 🚀 Planned  
-**Priority:** High  
+**Priority:** Medium  
 **Complexity:** Medium-High  
-**Timeline:** Q2 2026 (Post-MVP)  
+**Timeline:** Future (Post-MVP)  
 **Estimated Time:** 6-8 hours
 
 #### **Current State (MVP Approach):**
