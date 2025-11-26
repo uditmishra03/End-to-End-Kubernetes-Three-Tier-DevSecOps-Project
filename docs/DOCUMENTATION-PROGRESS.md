@@ -172,7 +172,7 @@
   - **Status:** Not Started
 
 - [ ] **Step 7: Document CI/CD pipelines**
-  - Explain both frontend and backend Jenkins pipelines with all stages: checkout, SonarQube analysis, security scans, Docker build, ECR push, and GitOps deployment update
+  - Explain both frontend and backend Jenkins pipelines with all stages: checkout, SonarQube analysis, security scans, Docker build, and ECR push with semantic versioning
   - **Status:** Not Started
 
 - [ ] **Step 8: Document Kubernetes deployment**

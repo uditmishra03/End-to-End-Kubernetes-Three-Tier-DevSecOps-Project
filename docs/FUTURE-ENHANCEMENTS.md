@@ -668,8 +668,9 @@ Successfully transitioned from a monorepo to a true microservices architecture b
 Developer Push → GitHub Webhook → Jenkins MBP → Build & Push to ECR
                                                        ↓
                                               ArgoCD Image Updater
+                                              Monitors ECR for new tags
                                                        ↓
-                                              Updates K8s manifests
+                                              Directly updates deployments
                                                        ↓
                                               ArgoCD sync → Deploy to EKS
 ```
@@ -1122,8 +1123,8 @@ Enhance Jenkins pipelines with parallel execution, automated rollback, advanced 
 
 **Current Flow (Sequential):**
 ```
-Checkout → SonarQube → Trivy FS → Docker Build → ECR Push → Trivy Image → Update Manifest
-Total Time: ~8-10 minutes
+Checkout → SonarQube → Trivy FS → Docker Build → ECR Push → Trivy Image
+Total Time: ~6-8 minutes
 ```
 
 **Optimized Flow (Parallel):**

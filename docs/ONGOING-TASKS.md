@@ -201,8 +201,8 @@
 
 - [ ] Single build per actual code change (no infinite loops)
 - [ ] Clean Jenkins build history (no ABORTED/NOT_BUILT entries for automated commits)
-- [ ] Automated deployment updates working (either manual or via ArgoCD Image Updater)
-- [ ] End-to-end flow: Code push → Jenkins build → ECR push → Deployment update → ArgoCD sync
+- [ ] Automated deployment via ArgoCD Image Updater monitoring ECR
+- [ ] End-to-end flow: Code push → Jenkins build → ECR push → ArgoCD Image Updater detects → ArgoCD deploys
 
 ---
 
