@@ -18,7 +18,9 @@ This project follows a **microservices architecture** with separate repositories
 - AWS Infrastructure provisioning (Terraform)
 - Jenkins CI/CD server setup
 - EKS cluster configuration
-- Kubernetes manifests for all services
+- Kubernetes manifests for shared infrastructure:
+  - Database (MongoDB): deployment, service, PV, PVC, secrets
+  - Ingress: AWS ALB configuration
 - ArgoCD GitOps configurations
 - Monitoring setup (Prometheus, Grafana)
 - Automation scripts
@@ -27,6 +29,7 @@ This project follows a **microservices architecture** with separate repositories
 **[three-tier-fe](https://github.com/uditmishra03/three-tier-fe)**
 - ReactJS application with modern UI
 - Nginx web server configuration
+- Kubernetes manifests (deployment.yaml, service.yaml, kustomization.yaml)
 - Independent Jenkins pipeline
 - Dedicated ECR repository: `frontend`
 - Date-based image tagging (YYYYMMDD-BUILD)
@@ -35,6 +38,7 @@ This project follows a **microservices architecture** with separate repositories
 **[three-tier-be](https://github.com/uditmishra03/three-tier-be)**
 - NodeJS/Express REST API
 - MongoDB integration
+- Kubernetes manifests (deployment.yaml, service.yaml, kustomization.yaml)
 - Independent Jenkins pipeline
 - Dedicated ECR repository: `backend`
 - Date-based image tagging (YYYYMMDD-BUILD)
@@ -110,9 +114,11 @@ End-to-end **DevSecOps** implementation for a **Three-Tier Web Application** on 
 │   GitHub Repository    │  │   GitHub Repository    │  │   GitHub Repository    │
 │   (Infrastructure)     │  │   (three-tier-fe)      │  │   (three-tier-be)      │
 │  ┌──────────────────┐  │  │  ┌──────────────────┐  │  │  ┌──────────────────┐  │
-│  │ K8s Manifests    │  │  │  │ React Frontend   │  │  │  │ Node.js Backend  │  │
-│  │ ArgoCD Configs   │  │  │  │ Nginx Config     │  │  │  │ Express API      │  │
-│  │ Terraform IaC    │  │  │  │ Jenkinsfile      │  │  │  │ Jenkinsfile      │  │
+│  │ K8s Manifests:   │  │  │  │ React Frontend   │  │  │  │ Node.js Backend  │  │
+│  │ - Database       │  │  │  │ Nginx Config     │  │  │  │ Express API      │  │
+│  │ - Ingress        │  │  │  │ K8s Manifests    │  │  │  │ K8s Manifests    │  │
+│  │ ArgoCD Configs   │  │  │  │ Jenkinsfile      │  │  │  │ Jenkinsfile      │  │
+│  │ Terraform IaC    │  │  │  │ Dockerfile       │  │  │  │ Dockerfile       │  │
 │  └──────────────────┘  │  │  └──────────────────┘  │  │  └──────────────────┘  │
 └───────────┬────────────┘  └───────────┬────────────┘  └───────────┬────────────┘
             │                           │                           │

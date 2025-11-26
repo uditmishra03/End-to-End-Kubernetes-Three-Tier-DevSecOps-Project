@@ -49,7 +49,7 @@ Developer Code Push
         │
         ├─► GitHub (three-tier-fe) ──► Jenkins Pipeline ──► ECR (frontend) ──┐
         ├─► GitHub (three-tier-be) ──► Jenkins Pipeline ──► ECR (backend)  ──┤
-        │                                                                      │
+        │                                                                    │
         └─► GitHub (Infrastructure) ──► ArgoCD ◄─── Image Updater ◄──────────┘
                                           │
                                           │ GitOps Deployment
