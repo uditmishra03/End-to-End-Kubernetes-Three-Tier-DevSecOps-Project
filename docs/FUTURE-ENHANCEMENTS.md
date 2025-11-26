@@ -23,6 +23,7 @@ This document consolidates all planned enhancements, improvements, and future sc
 | ECR Lifecycle Policy for Automated Image Cleanup               | ✅ Completed                    | Medium        |
 | HTTPS Implementation with Custom Domain                         | ✅ Completed                    | Medium        |
 | User Session Management & Data Isolation                        | 🚀 Planned                      | High          |
+| AWS Secrets Manager & External Secrets Operator                 | 🚀 Planned                      | High          |
 | Automation Scripts Testing & Enhancement                       | 🔄 Testing & Enhancement Phase  | High          |
 | Complete Infrastructure as Code (IaC)                          | 🚀 Planned                      | High          |
 | Complete Documentation & Portfolio Readiness                   | 🔄 Ongoing                      | High          |
@@ -2000,19 +2001,256 @@ Advanced Jenkins pipeline features and shared libraries.
 
 ## Security Enhancements
 
-### 18. 📋 Secrets Management
+### 18. 🔐 AWS Secrets Manager & External Secrets Operator
 **Status:** 🚀 Planned  
-**Priority:** Medium  
-**Timeline:** Q2 2026
+**Priority:** High  
+**Complexity:** Medium-High  
+**Timeline:** Q2 2026 (Post-MVP)  
+**Estimated Time:** 6-8 hours
 
-**Description:**
-External secrets management integration.
+#### **Current State (MVP Approach):**
+The application currently uses **Kubernetes base64-encoded Secrets** for sensitive data (MongoDB credentials). While this approach works for development and MVP, it has security limitations:
 
-**Implementation:**
-- AWS Secrets Manager for sensitive data
-- External Secrets Operator for K8s
-- Rotate secrets automatically
-- Audit trail for secret access
+**Current Implementation:**
+```yaml
+# k8s-infrastructure/Database/secrets.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mongodb-secret
+  namespace: three-tier
+type: Opaque
+data:
+  MONGO_USERNAME: YWRtaW4=  # base64: admin
+  MONGO_PASSWORD: cGFzc3dvcmQ=  # base64: password
+```
+
+**Known Limitations (Accepted for MVP):**
+- ❌ Base64 is **encoding**, not encryption (easily reversible)
+- ❌ Secrets visible to anyone with `kubectl` access
+- ❌ No audit trail for secret access
+- ❌ Manual secret rotation required
+- ❌ etcd stores secrets unencrypted by default (unless EKS encryption enabled)
+
+**Why This is Acceptable for MVP:**
+- ✅ Focus on **infrastructure and platform** setup first
+- ✅ Demonstrates **microservices architecture** and **GitOps workflow**
+- ✅ Enables rapid development and testing
+- ✅ Cost-effective (no additional AWS services)
+- ✅ Sufficient security for non-production, portfolio project
+- ✅ **ARNs and Account IDs** in Git are safe (public information)
+
+#### **Future Production-Grade Solution:**
+
+**Architecture: AWS Secrets Manager + External Secrets Operator**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                  Kubernetes Pod (Backend)                    │
+│  ┌────────────────────────────────────────────────────┐     │
+│  │  Environment Variables                             │     │
+│  │  MONGO_USERNAME: admin                             │     │
+│  │  MONGO_PASSWORD: <from ExternalSecret>             │     │
+│  └───────────────┬────────────────────────────────────┘     │
+└──────────────────┼──────────────────────────────────────────┘
+                   │ Reads from
+                   ▼
+┌─────────────────────────────────────────────────────────────┐
+│         Kubernetes Secret (mongodb-secret)                   │
+│         Created by External Secrets Operator                 │
+│         ⚠️ NOT stored in Git                                 │
+└──────────────────┬──────────────────────────────────────────┘
+                   │ Synced from (every 1 hour)
+                   ▼
+┌─────────────────────────────────────────────────────────────┐
+│              AWS Secrets Manager                             │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │  Secret: three-tier/prod/mongodb                    │    │
+│  │  {                                                   │    │
+│  │    "username": "admin",                              │    │
+│  │    "password": "SuperSecurePassword123!@#"           │    │
+│  │  }                                                   │    │
+│  │  ✅ Encryption: AWS KMS (at rest)                    │    │
+│  │  ✅ Access Control: IAM Policies                     │    │
+│  │  ✅ Audit Logs: CloudTrail                           │    │
+│  │  ✅ Automatic Rotation: Every 30 days                │    │
+│  └─────────────────────────────────────────────────────┘    │
+└──────────────────┬──────────────────────────────────────────┘
+                   │ IAM Auth via IRSA
+                   ▼
+┌─────────────────────────────────────────────────────────────┐
+│              AWS IAM Role (IRSA)                             │
+│  Role: external-secrets-role                                 │
+│  Trust Policy: OIDC Provider (EKS)                           │
+│  Permissions: secretsmanager:GetSecretValue                  │
+│  Condition: StringEquals namespace="three-tier"              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### **Implementation Steps (Future):**
+
+**Phase 1: Setup External Secrets Operator (2-3 hours)**
+
+1. **Install External Secrets Operator:**
+```bash
+helm repo add external-secrets https://charts.external-secrets.io
+helm install external-secrets \
+  external-secrets/external-secrets \
+  -n external-secrets-system \
+  --create-namespace
+```
+
+2. **Create IAM Role with IRSA:**
+```bash
+# IAM Policy for Secrets Manager access
+cat > external-secrets-policy.json <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Action": [
+      "secretsmanager:GetSecretValue",
+      "secretsmanager:DescribeSecret"
+    ],
+    "Resource": "arn:aws:secretsmanager:us-east-1:*:secret:three-tier/*"
+  }]
+}
+EOF
+
+# Create IAM policy
+aws iam create-policy \
+  --policy-name ExternalSecretsPolicy \
+  --policy-document file://external-secrets-policy.json
+
+# Create service account with IRSA
+eksctl create iamserviceaccount \
+  --name external-secrets-sa \
+  --namespace three-tier \
+  --cluster three-tier-eks \
+  --attach-policy-arn arn:aws:iam::296062548155:policy/ExternalSecretsPolicy \
+  --approve
+```
+
+**Phase 2: Migrate Secrets to AWS Secrets Manager (2-3 hours)**
+
+1. **Create Secrets in AWS Secrets Manager:**
+```bash
+# MongoDB credentials
+aws secretsmanager create-secret \
+  --name three-tier/prod/mongodb \
+  --secret-string '{"username":"admin","password":"SuperSecure123!@#"}' \
+  --region us-east-1
+
+# JWT secret (for future session management)
+aws secretsmanager create-secret \
+  --name three-tier/prod/jwt-secret \
+  --secret-string '{"secret":"your-jwt-secret-256-bits"}' \
+  --region us-east-1
+```
+
+2. **Create ExternalSecret Resources:**
+```yaml
+# k8s-infrastructure/Database/external-secret.yaml
+apiVersion: external-secrets.io/v1beta1
+kind: SecretStore
+metadata:
+  name: aws-secrets-manager
+  namespace: three-tier
+spec:
+  provider:
+    aws:
+      service: SecretsManager
+      region: us-east-1
+      auth:
+        jwt:
+          serviceAccountRef:
+            name: external-secrets-sa
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: mongodb-credentials
+  namespace: three-tier
+spec:
+  refreshInterval: 1h  # Sync every hour
+  secretStoreRef:
+    name: aws-secrets-manager
+  target:
+    name: mongodb-secret  # Creates this K8s Secret
+    creationPolicy: Owner
+  data:
+  - secretKey: MONGO_USERNAME
+    remoteRef:
+      key: three-tier/prod/mongodb
+      property: username
+  - secretKey: MONGO_PASSWORD
+    remoteRef:
+      key: three-tier/prod/mongodb
+      property: password
+```
+
+3. **Delete Old Secret (from Git):**
+```bash
+# Remove secrets.yaml from Git and add to .gitignore
+git rm k8s-infrastructure/Database/secrets.yaml
+echo "secrets.yaml" >> .gitignore
+git commit -m "security: Migrate to External Secrets Operator"
+```
+
+**Phase 3: Enable Secret Rotation (1-2 hours)**
+
+1. **Setup Lambda for MongoDB Password Rotation:**
+```python
+# Lambda function rotates MongoDB password
+def lambda_handler(event, context):
+    # 1. Generate new password
+    # 2. Update MongoDB user password
+    # 3. Update secret in Secrets Manager
+    # 4. ExternalSecret syncs to K8s automatically
+    pass
+```
+
+2. **Configure Rotation Schedule:**
+```bash
+aws secretsmanager rotate-secret \
+  --secret-id three-tier/prod/mongodb \
+  --rotation-lambda-arn arn:aws:lambda:us-east-1:296062548155:function:MongoDBRotation \
+  --rotation-rules AutomaticallyAfterDays=30
+```
+
+#### **Benefits of Future Implementation:**
+
+| Aspect | Current (MVP) | Future (Production) |
+|--------|---------------|---------------------|
+| **Encryption** | Base64 encoding | AWS KMS encryption |
+| **Access Control** | kubectl access | IAM policies |
+| **Audit Trail** | None | CloudTrail logs |
+| **Rotation** | Manual | Automatic (30 days) |
+| **Git Safety** | ⚠️ Must be careful | ✅ Never in Git |
+| **Cost** | Free | ~$2-3/month |
+| **Complexity** | Low | Medium |
+| **Security Level** | Development | Production-grade |
+
+#### **Cost Estimate (Future Implementation):**
+- **AWS Secrets Manager:** $0.40/secret/month + $0.05/10K API calls
+- **KMS:** $1/month + $0.03/10K requests
+- **Total:** ~$2-3/month for production-grade secrets management
+
+#### **Security Note:**
+**What IS Safe in Public Git Repository:**
+- ✅ **Certificate ARNs** (e.g., ACM certificate ARN in ingress.yaml)
+- ✅ **AWS Account IDs** (not considered sensitive by AWS)
+- ✅ **Resource ARNs** (ECR repos, S3 buckets, VPCs, subnets)
+- ✅ **Public configuration** (ingress rules, service ports, replicas)
+
+**What MUST Stay Secret:**
+- ❌ AWS Access Keys / Secret Keys
+- ❌ Database passwords (current: base64 in secrets.yaml)
+- ❌ API keys / JWT secrets
+- ❌ SSH private keys
+- ❌ OAuth client secrets
+
+**Current MVP Decision:** Accept base64 secrets for development/portfolio, migrate to AWS Secrets Manager for production deployment.
 
 ---
 
