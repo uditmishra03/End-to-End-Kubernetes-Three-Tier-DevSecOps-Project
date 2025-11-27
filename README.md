@@ -8,6 +8,125 @@
 
 This project demonstrates a **production-grade DevSecOps implementation** of a three-tier microservices application (React frontend, Node.js backend, MongoDB database) on **AWS EKS**. It showcases end-to-end automation with **Jenkins CI/CD pipelines**, **security scanning** (SonarQube, Trivy), **GitOps deployment** via ArgoCD Image Updater, and comprehensive **monitoring** using Prometheus and Grafana. Infrastructure is provisioned using **Terraform**, following industry best practices for scalability, security, and maintainability.
 
+## 🎬 Demo Videos
+
+Watch the complete project walkthrough and CI/CD pipeline demonstrations:
+
+1. **📹 [Complete Architecture Walkthrough](https://youtu.be/UDUG4bSSoV0?si=nEWenIlAgi_nv0yh)** - Full system architecture overview and component walkthrough
+2. **📹 [Three-Tier Project | Backend Application Walkthrough - Complete CI/CD Pipeline](https://youtu.be/KwXfFxuK1MM)** - Backend CI/CD demonstration with Jenkins, security scanning, and automated deployment
+3. **📹 [Frontend CI/CD Pipeline Demo](https://youtu.be/W7wGFY9dyYU?si=96heJTQO0ld49pRq)** *(No audio)* - Frontend code changes triggering zero-downtime deployments
+
+**What's Covered in the Demos:**
+- Live code commits triggering automated CI/CD pipelines
+- Jenkins pipeline execution with security scanning (SonarQube + Trivy)
+- Docker image builds and ECR push
+- ArgoCD GitOps automated deployments
+- Zero-downtime rolling updates on EKS
+- Real-time monitoring with Prometheus & Grafana
+
+## 📸 Pipeline Screenshots
+
+Complete visual walkthrough of the CI/CD pipeline execution:
+
+### Jenkins CI/CD Pipeline
+![Jenkins Pipeline Overview](assets/screenshots/Jenkins_all_mbp.png)
+*Jenkins dashboard showing all configured pipelines*
+
+![Frontend Pipeline Execution](assets/screenshots/jenkins_fe_mbp.png)
+![Frontend Pipeline Execution](assets/screenshots/jenkins_fe_mbp_stages.png)
+![Frontend Pipeline Execution](assets/screenshots/Jenkins_console_logs.png)
+*Frontend pipeline stages: Code checkout, SonarQube analysis, Trivy scan, Docker build*
+
+![Backend Pipeline Execution](assets/screenshots/jenkins_be_mbp.png)
+![Backend Pipeline Execution](assets/screenshots/jenkins_be_mbp_stages.png)
+*Backend pipeline stages: Code checkout, SonarQube analysis, Trivy scan, Docker build*
+
+### Security Scanning
+![SonarQube Analysis](assets/screenshots/sonar_proj.png)
+*SonarQube code quality and security analysis results*
+
+![Trivy Security Scan](assets/screenshots/trivy.png)
+*Trivy vulnerability scanning for Docker images*
+
+### Docker & ECR
+![Docker Build Process](assets/screenshots/docker_build_push.png)
+*Docker image build with semantic versioning (YYYYMMDD-BUILD)*
+
+![ECR Repository](assets/screenshots/ecr_fe.png)
+![ECR Repository](assets/screenshots/ecr_be.png)
+*AWS ECR showing frontend and backend image repositories*
+
+![Image Push Success](assets/screenshots/img_push_success.png)
+*Successful Docker image push to ECR with version tags*
+
+### ArgoCD GitOps Deployment
+![ArgoCD Dashboard](assets/screenshots/argo_all_apps.png)
+*ArgoCD applications overview - Frontend, Backend, Database, Ingress*
+
+![Frontend Application Sync Status](assets/screenshots/argo_fe.png)
+*ArgoCD showing healthy and synced application status*
+
+![Backend Application Sync Status](assets/screenshots/argo_be.png)
+*ArgoCD showing healthy and synced application status*
+
+![Database Application Sync Status](assets/screenshots/argo_db.png)
+*ArgoCD showing healthy and synced application status*
+
+![Backend Application Sync Status](assets/screenshots/argo_ingress.png)
+*ArgoCD showing healthy and synced application status*
+
+![Image Updater](assets/screenshots/image_updater.png)
+*ArgoCD Image Updater detecting and deploying new ECR images*
+
+![Deployment Details](assets/screenshots/pod_status.png)
+*Kubernetes deployment details with pod status*
+
+### Kubernetes Cluster
+![EKS Cluster Nodes](assets/screenshots/nodes.png)
+*EKS cluster nodes and resource utilization*
+
+![Running Pods](assets/screenshots/pod_status.png)
+*All pods running in three-tier namespace*
+
+![Services & Ingress](assets/screenshots/svc_ing.png)
+*Kubernetes services and ALB ingress configuration*
+
+### Monitoring Stack
+![Prometheus Targets](assets/screenshots/prometheus.png)
+*Prometheus targets showing all monitored endpoints*
+
+![Grafana Dashboard](assets/screenshots/grafana_db_0.png)
+*Grafana Dashboard 315 - Kubernetes cluster monitoring*
+
+![Grafana Dashboard](assets/screenshots/grafana_db_01.png)
+*Grafana Dashboard 315 - Kubernetes cluster monitoring*
+
+![Grafana Dashboard](assets/screenshots/grafana_db_1.png)
+*Grafana Dashboard 315 - Kubernetes cluster monitoring*
+
+![Grafana Dashboard](assets/screenshots/grafana_db_3.png)
+*Grafana Dashboard 315 - Kubernetes cluster monitoring*
+
+![Grafana Dashboard](assets/screenshots/grafana_db_4.png)
+*Grafana Dashboard 315 - Kubernetes cluster monitoring*
+
+![Grafana Dashboard](assets/screenshots/grafana_db_5.png)
+*Grafana Dashboard 315 - Kubernetes cluster monitoring*
+
+![Pod Monitoring](assets/screenshots/grafana_db_0.png)
+*Pod-level CPU, memory, and network metrics*
+
+### Application Demo
+![Frontend Application](assets/screenshots/application.png)
+*Live TO-DO application with DevSecOps demo banner*
+
+![Backend API](assets/screenshots/app_be.png)
+
+![Backend API](assets/screenshots/app_be_2.png)
+*Backend API version endpoint response*
+
+---
+
 ## 🚀 Getting Started
 
 **New to this project?** Follow these steps:

@@ -8,6 +8,18 @@ This guide provides a **step-by-step deployment order** for setting up the entir
 
 ---
 
+## 🎬 Demo Videos
+
+Before you begin, watch these walkthrough videos to see the complete project in action:
+
+1. **📹 [Complete Architecture Walkthrough](https://youtu.be/UDUG4bSSoV0?si=nEWenIlAgi_nv0yh)** - Full system architecture overview and component walkthrough
+2. **📹 [Three-Tier Project | Backend Application Walkthrough - Complete CI/CD Pipeline](https://youtu.be/KwXfFxuK1MM)** - Backend CI/CD demonstration with Jenkins, security scanning, and automated deployment
+3. **📹 [Frontend CI/CD Pipeline Demo](https://youtu.be/W7wGFY9dyYU?si=96heJTQO0ld49pRq)** *(No audio)* - Frontend code changes triggering zero-downtime deployments
+
+These videos demonstrate the exact flow you'll be implementing in this guide!
+
+---
+
 ## 📋 Prerequisites Checklist
 
 Before starting, ensure you have:
