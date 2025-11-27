@@ -42,17 +42,6 @@ grafana:
     dashboards:
       enabled: true
 
-  # Manual Prometheus datasource configuration
-  datasources:
-    datasources.yaml:
-      apiVersion: 1
-      datasources:
-      - name: Prometheus
-        type: prometheus
-        url: http://prometheus-kube-prometheus-prometheus:9090
-        access: proxy
-        isDefault: true
-
 prometheus:
   prometheusSpec:
     # Enable persistent storage for Prometheus metrics data
