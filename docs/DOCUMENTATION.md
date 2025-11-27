@@ -1467,7 +1467,7 @@ argocd app sync three-tier-app  # Manual sync (rarely needed with auto-sync)
 
 ---
 
-## 12. Monitoring with Prometheus
+## 12. Monitoring with Prometheus (Namespace: monitoring)
 
 ### 12.1 Install Prometheus using Helm
 
@@ -1484,26 +1484,23 @@ helm install prometheus prometheus-community/kube-prometheus-stack \
   --namespace monitoring
 
 # Verify installation
-kubectl get pods -n default | grep prometheus
-kubectl get svc -n default | grep prometheus
+kubectl get pods -n monitoring | grep prometheus
+kubectl get svc -n monitoring | grep prometheus
 ```
 
 ### 12.2 Access Prometheus
 
-**Via LoadBalancer (Recommended):**
+**Via Ingress (ALB):**
 ```bash
-# Prometheus is already exposed via LoadBalancer
-kubectl get svc stable-kube-prometheus-sta-prometheus -n default
+kubectl get ingress -n monitoring
+kubectl describe ingress prometheus-ingress -n monitoring
 ```
-
-**Access URL:** 
-```
-http://aba486402dcc7489db934c692c09b53f-468856416.us-east-1.elb.amazonaws.com:9090
-```
+Use the `ADDRESS` DNS from the ingress to access Prometheus on port 80, e.g.:
+`http://<prometheus-ingress-dns>/graph`
 
 **Or via Port Forward (for local access):**
 ```bash
-kubectl port-forward -n default svc/prometheus-operated 9090:9090
+kubectl port-forward -n monitoring svc/prometheus-operated 9090:9090
 ```
 Access: `http://localhost:9090`
 
@@ -1533,25 +1530,22 @@ kube_pod_container_status_restarts_total{namespace="three-tier"}
 
 ---
 
-## 13. Grafana Setup and Enhancements
+## 13. Grafana Setup and Enhancements (Namespace: monitoring)
 
 ### 13.1 Access Grafana
 
-**Via LoadBalancer (Recommended):**
+**Via NodePort (Recommended for Cost Efficiency):**
 ```bash
-# Grafana is already exposed via LoadBalancer
-kubectl get svc stable-grafana -n default
-```
+# Get any node external IP
+kubectl get nodes -o wide
 
-**Access URL:**
-```
-http://a2c6af4284b0a492ca5361c0f803d6d2-1545715117.us-east-1.elb.amazonaws.com
+# Grafana is exposed on NodePort 32000
+# Access: http://<NODE-EXTERNAL-IP>:32000
 ```
 
 **Get Admin Password:**
 ```bash
-kubectl get secret -n default stable-grafana -o jsonpath="{.data.admin-password}" | base64 -d
-echo
+kubectl get secret -n monitoring prometheus-grafana -o jsonpath="{.data.admin-password}" | base64 -d ; echo
 ```
 
 **Login Credentials:**
@@ -1560,7 +1554,7 @@ echo
 
 **Or via Port Forward (for local access):**
 ```bash
-kubectl port-forward -n default svc/stable-grafana 3000:80
+kubectl port-forward -n monitoring deploy/prometheus-grafana 3000:3000
 ```
 Access: `http://localhost:3000`
 
@@ -1574,7 +1568,7 @@ Before importing dashboards, add Prometheus as a data source:
 4. **Select "Prometheus"**
 5. **Configure:**
    - Name: `Prometheus`
-   - URL: `http://prometheus-operated:9090`
+  - URL: `http://prometheus-operated:9090`
    - Access: `Server (default)`
 6. **Click "Save & Test"** - should show "Data source is working"
 

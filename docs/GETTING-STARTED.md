@@ -426,42 +426,46 @@ Deploy Prometheus and Grafana for observability.
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo update
 
-# Install Prometheus (installs to default namespace)
-helm install stable prometheus-community/kube-prometheus-stack -n default
+# Create monitoring namespace
+kubectl create namespace monitoring
+
+# Install Prometheus stack (installs to monitoring namespace)
+helm install prometheus prometheus-community/kube-prometheus-stack -n monitoring
 ```
 
 #### 10.2 Access Prometheus
 
-**Via LoadBalancer:**
+**Via NodePort:**
 ```bash
-# Prometheus is already exposed via LoadBalancer
-kubectl get svc stable-kube-prometheus-sta-prometheus -n default
+# Get node external IP
+kubectl get nodes -o wide
 
+# Prometheus NodePort: 32090
 # Access URL:
-# http://aba486402dcc7489db934c692c09b53f-468856416.us-east-1.elb.amazonaws.com:9090
+# http://<NODE-EXTERNAL-IP>:32090/graph
 ```
 
 **Or via Port Forward:**
 ```bash
-kubectl port-forward -n default svc/prometheus-operated 9090:9090
+kubectl port-forward -n monitoring svc/prometheus-operated 9090:9090
 # Access at: http://localhost:9090
 ```
 
 #### 10.3 Access Grafana
 
-**Via LoadBalancer (Recommended):**
+**Via NodePort:**
 ```bash
-# Grafana is already exposed via LoadBalancer
-kubectl get svc stable-grafana -n default
+# Get node external IP
+kubectl get nodes -o wide
 
+# Grafana NodePort: 32000
 # Access URL:
-# http://a2c6af4284b0a492ca5361c0f803d6d2-1545715117.us-east-1.elb.amazonaws.com
+# http://<NODE-EXTERNAL-IP>:32000
 ```
 
 **Get Admin Password:**
 ```bash
-kubectl get secret -n default stable-grafana -o jsonpath="{.data.admin-password}" | base64 -d
-echo
+kubectl get secret -n monitoring prometheus-grafana -o jsonpath="{.data.admin-password}" | base64 -d ; echo
 
 # Username: admin
 # Password: <from above command>

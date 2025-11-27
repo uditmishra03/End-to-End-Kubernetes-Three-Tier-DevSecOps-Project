@@ -23,8 +23,8 @@ Namespace: default
 ### New Setup (monitoring namespace)
 ```
 Namespace: monitoring
-├── prometheus-grafana (LoadBalancer)
-├── prometheus-kube-prometheus-prometheus (LoadBalancer)
+├── prometheus-grafana (NodePort 32000)
+├── prometheus-kube-prometheus-prometheus (NodePort 32090)
 └── With persistent storage ✅
     ├── Grafana: 10Gi EBS volume
     ├── Prometheus: 20Gi EBS volume
@@ -37,11 +37,16 @@ Namespace: monitoring
 
 ### Phase 1: Install New Stack (No Downtime)
 
-#### Step 1: Run Setup Script
+#### Step 1: Install/Upgrade via Helm
 ```bash
 cd k8s-infrastructure/monitoring
-chmod +x setup-grafana-persistence.sh
-./setup-grafana-persistence.sh
+
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+
+helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
+  -n monitoring -f prometheus-values.yaml
 ```
 
 **Expected Output:**
@@ -114,8 +119,8 @@ prometheus-prometheus-node-exporter-xxxxx           1/1     Running   0         
 
 #### Step 3: Get New Access URLs
 ```bash
-# Get new Grafana URL
-kubectl get svc prometheus-grafana -n monitoring
+# Get node external IPs
+kubectl get nodes -o wide
 
 # Get admin password
 kubectl get secret prometheus-grafana -n monitoring \
@@ -123,13 +128,17 @@ kubectl get secret prometheus-grafana -n monitoring \
 echo
 ```
 
+**Access URLs:**
+- Grafana: `http://<NODE-EXTERNAL-IP>:32000`
+- Prometheus: `http://<NODE-EXTERNAL-IP>:32090`
+
 ---
 
 ### Phase 2: Test New Setup
 
 #### Step 1: Access New Grafana
 ```bash
-# Open browser to new Grafana URL
+# Open browser to: http://<NODE-EXTERNAL-IP>:32000
 # Login: admin / <password from above>
 ```
 
@@ -139,7 +148,7 @@ echo
 3. Select **Prometheus**
 4. Configure:
    - Name: `Prometheus`
-   - URL: `http://prometheus-kube-prometheus-prometheus:9090`
+  - URL: `http://prometheus-operated:9090`
    - Access: `Server (default)`
 5. Click **Save & Test**
 
@@ -191,6 +200,14 @@ Run both systems in parallel for testing:
 | **Dashboard Retention** | ❌ Lost on restart | ✅ Persists forever |
 | **Metrics Retention** | Unknown | ✅ 15 days |
 | **Cost** | Free (no storage) | ~$3.50/month |
+
+### Notes
+- The EKS node group was scaled from 2 → 3 nodes to ensure adequate capacity for the monitoring stack (Prometheus Operator, Grafana, AlertManager) and persistent volumes.
+- Legacy `default` namespace releases should be uninstalled after validation:
+  ```bash
+  helm uninstall grafana -n default || true
+  helm uninstall prometheus -n default || true
+  ```
 
 #### Comparison Checklist
 

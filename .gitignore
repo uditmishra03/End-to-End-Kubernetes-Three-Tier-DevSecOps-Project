@@ -1,2 +1,7 @@
 # ArgoCD Image Updater cache files
 .argocd-source-*.yaml
+
+# Large video/recording files
+*.mp4
+*.mov
+*.avi

@@ -1,6 +1,6 @@
 # Grafana Persistent Storage Configuration
 
-This directory contains configuration files to enable persistent storage for Grafana and Prometheus, ensuring dashboards and metrics data survive pod restarts.
+This directory contains configuration files to enable persistent storage for Grafana and Prometheus, ensuring dashboards and metrics data survive pod restarts. The monitoring stack runs in the `monitoring` namespace and is exposed via NodePort for cost efficiency.
 
 ## Problem Statement
 
@@ -10,28 +10,30 @@ This directory contains configuration files to enable persistent storage for Gra
 
 ## Files
 
-- **`grafana-pvc.yaml`** - PersistentVolumeClaim for Grafana (10Gi)
-- **`prometheus-values.yaml`** - Helm values with persistent storage configuration
-- **`setup-grafana-persistence.sh`** - Automated setup script
+- **`prometheus-values.yaml`** - Helm values with persistent storage configuration (Grafana, Prometheus, AlertManager) and NodePort services
+- (Deprecated) `grafana-pvc.yaml` and setup scripts are no longer required with Helm values.
 
 ## Quick Fix
 
-Run the setup script to enable persistent storage:
+Recommended install procedure (NodePort + persistence):
 
 ```bash
-cd k8s-infrastructure/monitoring
-chmod +x setup-grafana-persistence.sh
-./setup-grafana-persistence.sh
+# Add Helm repo and create namespace
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+kubectl create namespace monitoring
+
+# Install/upgrade kube-prometheus-stack with persistence
+helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
+  -n monitoring -f prometheus-values.yaml
+
+# Get node IPs for access
+kubectl get nodes -o wide
 ```
 
-This script will:
-1. ✅ Check if monitoring namespace exists
-2. ✅ Upgrade existing Prometheus/Grafana Helm release with persistent storage
-3. ✅ Create PersistentVolumeClaims (Grafana: 10Gi, Prometheus: 20Gi)
-4. ✅ Wait for pods to be ready
-5. ✅ Display access URLs and credentials
-
-## What Gets Persisted
+**Access URLs:**
+- Grafana: `http://<NODE-IP>:32000`
+- Prometheus: `http://<NODE-IP>:32090`## What Gets Persisted
 
 ### Grafana (10Gi)
 - Dashboard configurations
@@ -96,9 +98,9 @@ alertmanager-prometheus-kube-...    Bound    pvc-zzzzz-zzzz-zzzz-zzzz-zzzzzzzzzz
 
 ## Access Grafana
 
-### Get LoadBalancer URL
+### Get Node IP
 ```bash
-kubectl get svc prometheus-grafana -n monitoring
+kubectl get nodes -o wide
 ```
 
 ### Get Admin Password
@@ -109,7 +111,7 @@ echo
 ```
 
 ### Login
-- **URL:** `http://<LOADBALANCER-URL>`
+- **URL:** `http://<NODE-EXTERNAL-IP>:32000`
 - **Username:** `admin`
 - **Password:** (from command above)
 
@@ -154,22 +156,9 @@ kubectl wait --for=condition=available --timeout=300s \
 # Access Grafana URL and verify your dashboards are still there
 ```
 
-## Integration with Startup Script
+## Notes on Cluster Capacity
 
-To automatically configure persistent storage on cluster restart, add to `scripts/startup-cluster.sh`:
-
-```bash
-################################################################################
-# Step X: Configure Grafana Persistent Storage
-################################################################################
-print_header "Step X: Configuring Grafana Persistent Storage"
-
-cd k8s-infrastructure/monitoring
-./setup-grafana-persistence.sh
-cd ../..
-
-print_success "Grafana configured with persistent storage"
-```
+The EKS node group was scaled from 2 → 3 nodes to provide sufficient capacity for Prometheus Operator components and persistent volumes. Update any references to node count accordingly.
 
 ## Troubleshooting
 
@@ -181,7 +170,7 @@ kubectl describe pvc prometheus-grafana -n monitoring
 # Check if StorageClass exists
 kubectl get storageclass
 
-# Ensure EBS CSI driver is installed (EKS 1.23+)
+# Ensure EBS CSI driver is installed (required for dynamic PV provisioning)
 kubectl get pods -n kube-system | grep ebs-csi
 ```
 

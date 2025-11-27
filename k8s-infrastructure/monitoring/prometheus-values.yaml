@@ -15,8 +15,9 @@ grafana:
 
   # Service configuration
   service:
-    type: ClusterIP
+    type: NodePort
     port: 80
+    nodePort: 32000
 
   # Enable default dashboards
   defaultDashboardsEnabled: true
@@ -68,8 +69,9 @@ prometheus:
 
   # Service configuration
   service:
-    type: ClusterIP
+    type: NodePort
     port: 9090
+    nodePort: 32090
 
 # AlertManager configuration (optional persistent storage)
 alertmanager:
