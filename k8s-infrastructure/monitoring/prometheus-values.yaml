@@ -35,8 +35,23 @@ grafana:
         options:
           path: /var/lib/grafana/dashboards/default
 
-  # Datasources will be auto-discovered by Grafana sidecar
-  # No manual datasource configuration needed
+  # Disable sidecar datasource provisioning to avoid conflicts
+  sidecar:
+    datasources:
+      enabled: false
+    dashboards:
+      enabled: true
+
+  # Manual Prometheus datasource configuration
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+      - name: Prometheus
+        type: prometheus
+        url: http://prometheus-kube-prometheus-prometheus:9090
+        access: proxy
+        isDefault: true
 
 prometheus:
   prometheusSpec:
