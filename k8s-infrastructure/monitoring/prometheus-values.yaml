@@ -15,7 +15,7 @@ grafana:
 
   # Service configuration
   service:
-    type: LoadBalancer
+    type: ClusterIP
     port: 80
 
   # Enable default dashboards
@@ -68,7 +68,7 @@ prometheus:
 
   # Service configuration
   service:
-    type: LoadBalancer
+    type: ClusterIP
     port: 9090
 
 # AlertManager configuration (optional persistent storage)
