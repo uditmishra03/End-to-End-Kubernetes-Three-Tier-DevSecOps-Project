@@ -1406,19 +1406,19 @@ argocd app create three-tier-app \
                     ▼
 ┌─────────────────────────────────────────────────────────┐
 │ 3. Jenkins Pipeline (5-8 minutes)                       │
-│    Checkout → SonarQube → Build → Trivy → ECR Push     │
-│    Creates tag: YYYYMMDD-XXX (zero-padded)             │
+│    Checkout → SonarQube → Build → Trivy → ECR Push      │
+│    Creates tag: YYYYMMDD-XXX (zero-padded)              │
 └───────────────────┬─────────────────────────────────────┘
                     │
                     ▼
 ┌─────────────────────────────────────────────────────────┐
 │ 4. AWS ECR                                              │
-│    New image appears with date-based tag               │
+│    New image appears with date-based tag                │
 └───────────────────┬─────────────────────────────────────┘
                     │
                     ▼ (Wait up to 2 minutes)
 ┌─────────────────────────────────────────────────────────┐
-│ 5. ArgoCD Image Updater (runs every 2 min)             │
+│ 5. ArgoCD Image Updater (runs every 2 min)              │
 │    - Queries ECR for new tags                           │
 │    - Filters by regex: ^[0-9-]+$                        │
 │    - Sorts: latest-first                                │
