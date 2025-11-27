@@ -674,33 +674,33 @@ This project follows a **microservices architecture** with three separate reposi
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                              END USER                                    │
-│                       (Browser / Mobile Device)                          │
+│                              END USER                                   │
+│                       (Browser / Mobile Device)                         │
 └────────────────────────────────┬────────────────────────────────────────┘
                                  │
                                  │ HTTPS Request (Port 443)
                                  │ https://todo.tarang.cloud
                                  ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                           DNS RESOLUTION                                 │
-│                         (Hostinger DNS / Route53)                        │
-│                                                                          │
-│  CNAME: todo.tarang.cloud → k8s-threetie-mainlb-XXX.elb.amazonaws.com  │
+│                           DNS RESOLUTION                                │
+│                         (Hostinger DNS / Route53)                       │
+│                                                                         │
+│  CNAME: todo.tarang.cloud → k8s-threetie-mainlb-XXX.elb.amazonaws.com   │
 └────────────────────────────────┬────────────────────────────────────────┘
                                  │
                                  │ Resolved ALB DNS
                                  ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                     AWS APPLICATION LOAD BALANCER                        │
-│                         (Internet-Facing ALB)                            │
-│                                                                          │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │  SSL/TLS Termination                                            │   │
-│  │  Certificate: *.tarang.cloud (ACM)                              │   │
-│  │  ARN: arn:aws:acm:us-east-1:296062548155:certificate/...       │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-│  Listeners:                                                              │
+│                     AWS APPLICATION LOAD BALANCER                       │
+│                         (Internet-Facing ALB)                           │
+│                                                                         │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │  SSL/TLS Termination                                            │    │
+│  │  Certificate: *.tarang.cloud (ACM)                              │    │
+│  │  ARN: arn:aws:acm:us-east-1:296062548155:certificate/...        │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│                                                                         │
+│  Listeners:                                                             │
 │  ├─ Port 80 (HTTP)  → Redirect to HTTPS (Port 443)                      │
 │  └─ Port 443 (HTTPS) → Forward to Target Groups                         │
 └────────────────────────────────┬────────────────────────────────────────┘
@@ -708,9 +708,9 @@ This project follows a **microservices architecture** with three separate reposi
                                  │ HTTP (within VPC)
                                  ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                    AWS ALB INGRESS CONTROLLER                            │
-│                         (Kubernetes Ingress)                             │
-│                                                                          │
+│                    AWS ALB INGRESS CONTROLLER                           │
+│                         (Kubernetes Ingress)                            │
+│                                                                         │
 │  Host-Based Routing: todo.tarang.cloud                                  │
 │  Path-Based Routing:                                                    │
 │    ├─ /api/*      → Backend Service (api)                               │
@@ -720,9 +720,9 @@ This project follows a **microservices architecture** with three separate reposi
 │    └─ /*          → Frontend Service                                    │
 └────────────────┬──────────────────────┬─────────────────────────────────┘
                  │                      │
-     ┌───────────┴───────┐   ┌──────────┴──────────┐
-     │                   │   │                     │
-     ▼                   │   ▼                     │
+     ┌───────────┴───────┐   ┌──────────┴─────────┐
+     │                   │   │                    │
+     ▼                   │   ▼                    │
 ┌─────────────────┐      │  ┌─────────────────┐   │
 │  Frontend       │      │  │  Backend (API)  │   │
 │  Service        │      │  │  Service        │   │
@@ -785,18 +785,18 @@ This project follows a **microservices architecture** with three separate reposi
         │
         ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                          ARGOCD GITOPS                                   │
-│                    (Continuous Deployment)                               │
-│                                                                          │
-│  ┌────────────────────────────────────────────────────────────────┐    │
-│  │  ArgoCD Image Updater                                          │    │
-│  │  Monitors ECR repositories for new images                      │    │
-│  │  - frontend: YYYYMMDD-BUILD format                             │    │
-│  │  - backend: YYYYMMDD-BUILD format                              │    │
-│  │  Auto-updates deployments in cluster when new images detected  │    │
-│  └────────────────────────────────────────────────────────────────┘    │
-│                                                                          │
-│  Applications:                                                           │
+│                          ARGOCD GITOPS                                  │
+│                    (Continuous Deployment)                              │
+│                                                                         │
+│  ┌────────────────────────────────────────────────────────────────┐     │
+│  │  ArgoCD Image Updater                                          │     │
+│  │  Monitors ECR repositories for new images                      │     │
+│  │  - frontend: YYYYMMDD-BUILD format                             │     │
+│  │  - backend: YYYYMMDD-BUILD format                              │     │
+│  │  Auto-updates deployments in cluster when new images detected  │     │
+│  └────────────────────────────────────────────────────────────────┘     │
+│                                                                         │
+│  Applications:                                                          │
 │  ├─ frontend-app   (three-tier-fe repo)                                 │
 │  ├─ backend-app    (three-tier-be repo)                                 │
 │  ├─ database-app   (infrastructure repo)                                │
