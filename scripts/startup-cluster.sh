@@ -517,6 +517,24 @@ if [ -f "Kubernetes-Manifests-file/ingress.yaml" ]; then
 fi
 
 ################################################################################
+# Step 8.5: Configure Grafana Persistent Storage
+################################################################################
+print_header "Step 8.5: Configuring Grafana Persistent Storage"
+
+MONITORING_SCRIPT="k8s-infrastructure/monitoring/setup-grafana-persistence.sh"
+
+if [ -f "$MONITORING_SCRIPT" ]; then
+    echo "Running Grafana persistence setup script..."
+    chmod +x "$MONITORING_SCRIPT"
+    bash "$MONITORING_SCRIPT" || print_warning "Grafana persistence setup encountered issues"
+    print_success "Grafana configured with persistent storage"
+else
+    print_warning "Monitoring setup script not found at $MONITORING_SCRIPT"
+    echo "To manually set up persistent storage later, run:"
+    echo "  cd k8s-infrastructure/monitoring && ./setup-grafana-persistence.sh"
+fi
+
+################################################################################
 # Step 9: Check ALB and Target Health
 ################################################################################
 print_header "Step 9: Verifying ALB and Target Health"

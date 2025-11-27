@@ -1,0 +1,96 @@
+# Helm values for kube-prometheus-stack with persistent storage
+# This configuration ensures Grafana dashboards and Prometheus data persist across pod restarts
+
+grafana:
+  # Enable persistent storage for Grafana
+  persistence:
+    enabled: true
+    storageClassName: gp2 # AWS EBS gp2 for EKS
+    size: 10Gi
+    accessModes:
+    - ReadWriteOnce
+
+  # Grafana admin credentials
+  adminPassword: admin # Change this in production!
+
+  # Service configuration
+  service:
+    type: LoadBalancer
+    port: 80
+
+  # Enable default dashboards
+  defaultDashboardsEnabled: true
+
+  # Dashboard providers configuration
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+      - name: 'default'
+        orgId: 1
+        folder: ''
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards/default
+
+  # Pre-configure Prometheus datasource
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+      - name: Prometheus
+        type: prometheus
+        url: http://prometheus-kube-prometheus-prometheus:9090
+        access: proxy
+        isDefault: true
+
+prometheus:
+  prometheusSpec:
+    # Enable persistent storage for Prometheus metrics data
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp2 # AWS EBS gp2 for EKS
+          accessModes: [ "ReadWriteOnce" ]
+          resources:
+            requests:
+              storage: 20Gi # 20GB for time-series metrics data
+
+    # Retention period for metrics
+    retention: 15d # Keep metrics for 15 days
+
+    # Resource limits
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 2Gi
+
+  # Service configuration
+  service:
+    type: LoadBalancer
+    port: 9090
+
+# AlertManager configuration (optional persistent storage)
+alertmanager:
+  alertmanagerSpec:
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp2
+          accessModes: [ "ReadWriteOnce" ]
+          resources:
+            requests:
+              storage: 5Gi
+
+# Node exporter for node-level metrics
+nodeExporter:
+  enabled: true
+
+# Kube-state-metrics for K8s object metrics
+kubeStateMetrics:
+  enabled: true
