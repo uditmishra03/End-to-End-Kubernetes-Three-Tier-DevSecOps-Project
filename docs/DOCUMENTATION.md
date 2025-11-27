@@ -1389,22 +1389,72 @@ argocd app create three-tier-app \
 
 ### 11.4 GitOps Workflow
 
+**End-to-End Automated Deployment Flow:**
+
 ```
-Jenkins builds & pushes image to ECR (with YYYYMMDD-BUILD tag)
-    ↓
-ArgoCD Image Updater detects new image in ECR
-    ↓
-Image Updater updates deployment spec in ArgoCD
-    ↓
-ArgoCD syncs updated deployment to EKS cluster
-    ↓
-New pods deployed with latest image
+┌─────────────────────────────────────────────────────────┐
+│ 1. Developer Push                                       │
+│    git push origin master (backend or frontend)         │
+└───────────────────┬─────────────────────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────────────────────┐
+│ 2. GitHub Webhook                                       │
+│    Triggers Jenkins pipeline                            │
+└───────────────────┬─────────────────────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────────────────────┐
+│ 3. Jenkins Pipeline (5-8 minutes)                       │
+│    Checkout → SonarQube → Build → Trivy → ECR Push     │
+│    Creates tag: YYYYMMDD-XXX (zero-padded)             │
+└───────────────────┬─────────────────────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────────────────────┐
+│ 4. AWS ECR                                              │
+│    New image appears with date-based tag               │
+└───────────────────┬─────────────────────────────────────┘
+                    │
+                    ▼ (Wait up to 2 minutes)
+┌─────────────────────────────────────────────────────────┐
+│ 5. ArgoCD Image Updater (runs every 2 min)             │
+│    - Queries ECR for new tags                           │
+│    - Filters by regex: ^[0-9-]+$                        │
+│    - Sorts: latest-first                                │
+│    - Picks: YYYYMMDD-XXX (highest value)                │
+│    - Updates: ArgoCD Application object                 │
+└───────────────────┬─────────────────────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────────────────────┐
+│ 6. ArgoCD (auto-sync enabled)                           │
+│    - Detects Application change                         │
+│    - Syncs to cluster                                   │
+│    - Updates Deployment with new image                  │
+└───────────────────┬─────────────────────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────────────────────┐
+│ 7. Kubernetes                                           │
+│    - RollingUpdate: Old pods terminate                  │
+│    - New pods start with new image                      │
+│    - Application updated!                               │
+└─────────────────────────────────────────────────────────┘
+
+Total Time: 7-10 minutes (5-8 min pipeline + 0-2 min Image Updater)
 ```
+
+**Key Points:**
+- **Jenkins:** Builds image and pushes to ECR (does NOT update K8s manifests)
+- **ArgoCD Image Updater:** Monitors ECR and updates deployments automatically
+- **No Git Write-Back:** Image Updater updates ArgoCD Application spec directly
+- **Zero-Touch Deployment:** Fully automated from code push to production
 
 **Verify Sync:**
 ```bash
 argocd app get three-tier-app
-argocd app sync three-tier-app  # Manual sync
+argocd app sync three-tier-app  # Manual sync (rarely needed with auto-sync)
 ```
 
 ### 11.5 Benefits of GitOps

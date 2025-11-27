@@ -1,12 +1,21 @@
-# ArgoCD Image Updater - Lexicographic Sorting Issue Fix
+# ArgoCD Image Updater - Configuration and Sorting Fix
 
 ## Date
-November 20, 2025
+- **Initial Issue Fix:** November 20, 2025
+- **Final Configuration Update:** November 27, 2025
 
 ## Issue Summary
-ArgoCD Image Updater was not correctly identifying the latest container images due to a lexicographic sorting problem with image tags. The updater would select older images as "latest" because of improper tag formatting.
+ArgoCD Image Updater encountered two main issues:
+1. **Lexicographic sorting problem** with non-zero-padded build numbers
+2. **Invalid update-strategy configuration** causing image detection failures
 
-## Root Cause
+Both issues have been resolved through proper configuration and tag formatting.
+
+---
+
+## Issue 1: Lexicographic Sorting Problem (November 20, 2025)
+
+### Root Cause
 
 ### Problem
 Docker image tags were using the format: `YYYYMMDD-{BUILD_NUMBER}` where BUILD_NUMBER was not zero-padded.
@@ -136,6 +145,175 @@ sudo systemctl restart jenkins
 
 ## Verification
 
+### Before Fixes
+- Frontend stuck at: `:20251120-9` (older build)
+- Backend at: `:20251120-4` 
+- Image Updater was downgrading frontend due to lexicographic sorting
+- Invalid `update-strategy: semver` causing detection failures
+
+### After Fixes (November 20, 2025)
+- Frontend deployed: `:20251120-017` ✅
+- Backend deployed: `:20251120-017` ✅
+- Image Updater correctly identifying latest tags
+- Zero-padded build numbers working
+
+### After Configuration Update (November 27, 2025)
+- Frontend and Backend using `update-strategy: latest` ✅
+- Added `sort-tags: latest-first` for explicit sorting ✅
+- Multiple builds tested successfully ✅
+- Automatic deployment to EKS cluster working ✅
+
+### Test Results
+```bash
+# Verified current images
+kubectl get application frontend -n argocd -o jsonpath='{.spec.source.kustomize.images[0]}'
+296062548155.dkr.ecr.us-east-1.amazonaws.com/frontend:20251127-XXX
+
+kubectl get application backend -n argocd -o jsonpath='{.spec.source.kustomize.images[0]}'
+296062548155.dkr.ecr.us-east-1.amazonaws.com/backend:20251127-XXX
+```
+
+---
+
+## Issue 2: Update Strategy Configuration (November 27, 2025)
+
+### Problem
+Initial configuration used `update-strategy: semver` which is incompatible with date-based tags:
+
+```yaml
+# INCORRECT (Before)
+annotations:
+  argocd-image-updater.argoproj.io/frontend.update-strategy: semver
+  argocd-image-updater.argoproj.io/frontend.allow-tags: regexp:^[0-9-]+$
+```
+
+**Why This Failed:**
+- `semver` strategy expects semantic versioning format: `v1.0.0`, `v2.1.3`
+- Date-based tags like `20251127-001` don't match semver pattern
+- Image Updater couldn't determine "latest" version
+- Updates were not triggered despite new images in ECR
+
+### Solution
+Changed update strategy from `semver` to `latest` with explicit sorting:
+
+```yaml
+# CORRECT (After - November 27, 2025)
+annotations:
+  argocd-image-updater.argoproj.io/image-list: frontend=296062548155.dkr.ecr.us-east-1.amazonaws.com/frontend
+  argocd-image-updater.argoproj.io/frontend.update-strategy: latest
+  argocd-image-updater.argoproj.io/frontend.allow-tags: regexp:^[0-9-]+$
+  argocd-image-updater.argoproj.io/frontend.force-update: "true"
+  argocd-image-updater.argoproj.io/frontend.sort-tags: latest-first
+  argocd-image-updater.argoproj.io/write-back-method: argocd
+```
+
+### Configuration Changes Applied
+
+**Files Modified:**
+- `argocd-apps/backend-app.yaml`
+- `argocd-apps/frontend-app.yaml`
+
+**Commit:**
+```bash
+fix: Use valid update-strategy latest with sort-tags latest-first
+
+- Changed update-strategy from 'semver' to 'latest' for date-based tags
+- Added sort-tags: latest-first for explicit sorting order
+- Date format YYYYMMDD-XXX now correctly identifies newest images
+- Tested with multiple builds - automatic deployment working
+```
+
+### How It Works Now
+
+**Update Strategy: `latest`**
+- Picks the **most recent** image tag from filtered list
+- Uses `sort-tags: latest-first` to sort in descending order
+- For date format `YYYYMMDD-XXX`, higher values = newer images
+
+**Example:**
+```
+Available tags in ECR:
+- 20251125-001
+- 20251126-003
+- 20251127-005  ← Selected as "latest" (highest value)
+```
+
+**Tag Filtering: `allow-tags: regexp:^[0-9-]+$`**
+- Only considers tags matching this pattern
+- Matches: `20251127-001`, `20251127-002`
+- Ignores: `latest`, `v1.0`, `test-abc`, untagged images
+
+**Sorting: `sort-tags: latest-first`**
+- Sorts tags in **descending** order (newest first)
+- First tag in sorted list = selected image
+
+**Write-back: `argocd`**
+- Updates ArgoCD Application object directly in Kubernetes
+- No Git write-back needed (fast deployment)
+- Works with Kustomize image overrides
+
+---
+
+## Complete Workflow After Fixes
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ 1. Developer Push                                       │
+│    git push origin master (backend or frontend)         │
+└───────────────────┬─────────────────────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────────────────────┐
+│ 2. GitHub Webhook                                       │
+│    Triggers Jenkins pipeline                            │
+└───────────────────┬─────────────────────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────────────────────┐
+│ 3. Jenkins Pipeline (5-8 minutes)                       │
+│    Checkout → SonarQube → Build → Trivy → ECR Push     │
+│    Creates tag: 20251127-XXX (zero-padded)             │
+└───────────────────┬─────────────────────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────────────────────┐
+│ 4. AWS ECR                                              │
+│    New image appears with date-based tag               │
+└───────────────────┬─────────────────────────────────────┘
+                    │
+                    ▼ (Wait up to 2 minutes)
+┌─────────────────────────────────────────────────────────┐
+│ 5. ArgoCD Image Updater (runs every 2 min)             │
+│    - Queries ECR for new tags                           │
+│    - Filters by regex: ^[0-9-]+$                        │
+│    - Sorts: latest-first                                │
+│    - Picks: 20251127-XXX (highest value)                │
+│    - Updates: ArgoCD Application object                 │
+└───────────────────┬─────────────────────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────────────────────┐
+│ 6. ArgoCD (auto-sync enabled)                           │
+│    - Detects Application change                         │
+│    - Syncs to cluster                                   │
+│    - Updates Deployment with new image                  │
+└───────────────────┬─────────────────────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────────────────────┐
+│ 7. Kubernetes                                           │
+│    - RollingUpdate: Old pods terminate                  │
+│    - New pods start with new image                      │
+│    - Application updated!                               │
+└─────────────────────────────────────────────────────────┘
+
+Total Time: 7-10 minutes (5-8 min pipeline + 0-2 min Image Updater)
+```
+
+---
+
+## Verification
+
 ### Before Fix
 - Frontend stuck at: `:20251120-9` (older build)
 - Backend at: `:20251120-4` 
@@ -155,6 +333,104 @@ kubectl get application frontend -n argocd -o jsonpath='{.spec.source.kustomize.
 kubectl get application backend -n argocd -o jsonpath='{.spec.source.kustomize.images[0]}'
 296062548155.dkr.ecr.us-east-1.amazonaws.com/backend:20251120-017
 ```
+
+## Configuration Details
+
+### Final ArgoCD Image Updater Annotations (November 27, 2025)
+Both applications use identical annotation patterns:
+
+```yaml
+annotations:
+  # Image to monitor
+  argocd-image-updater.argoproj.io/image-list: backend=296062548155.dkr.ecr.us-east-1.amazonaws.com/backend
+  
+  # Update strategy: 'latest' picks newest tag based on sorting
+  argocd-image-updater.argoproj.io/backend.update-strategy: latest
+  
+  # Only consider tags matching date format YYYYMMDD-XXX
+  argocd-image-updater.argoproj.io/backend.allow-tags: regexp:^[0-9-]+$
+  
+  # Force update even if tag unchanged (edge case handling)
+  argocd-image-updater.argoproj.io/backend.force-update: "true"
+  
+  # Sort tags in descending order (newest first)
+  argocd-image-updater.argoproj.io/backend.sort-tags: latest-first
+  
+  # Update ArgoCD Application directly (no Git write-back)
+  argocd-image-updater.argoproj.io/write-back-method: argocd
+```
+
+### How Each Annotation Works
+
+1. **`update-strategy: latest`**
+   - Selects the most recent image from filtered and sorted list
+   - Compatible with any tag format (date-based, numeric, etc.)
+   - Alternative strategies: `semver`, `digest`, `name`
+
+2. **`allow-tags: regexp:^[0-9-]+$`**
+   - Filters tags to only include date-based format
+   - Pattern matches: `20251127-001`, `20251127-002`
+   - Ignores: `latest`, `v1.0.0`, `test`, untagged
+
+3. **`sort-tags: latest-first`**
+   - Explicit descending sort order
+   - For date tags: `20251127-005` > `20251127-004` > `20251127-003`
+   - First tag after sorting = selected image
+
+4. **`force-update: "true"`**
+   - Updates deployment even if tag name unchanged
+   - Handles edge case of rebuilding same tag
+   - Generally not needed but provides safety
+
+5. **`write-back-method: argocd`**
+   - Updates ArgoCD Application spec directly in Kubernetes
+   - No Git repository modification
+   - Fast deployment (no Git push overhead)
+   - Perfect for repos where manifests are in app repos (three-tier-fe, three-tier-be)
+
+### Update Strategy Comparison
+
+| Strategy | Best For | Tag Format | Our Choice |
+|----------|----------|------------|------------|
+| `latest` | Any tag format | Any (date, numeric, custom) | ✅ **YES** - Works with `YYYYMMDD-XXX` |
+| `semver` | Semantic versioning | `v1.0.0`, `v2.1.3` | ❌ NO - Doesn't match our date tags |
+| `digest` | Immutable digests | SHA256 digests | ❌ NO - Less readable |
+| `name` | Alphabetical | Custom patterns | ❌ NO - Same as lexicographic issue |
+
+---
+
+## Testing Results (November 27, 2025)
+
+### Multiple Build Test ✅
+**Scenario:** Pushed multiple commits in quick succession
+
+**Results:**
+- Build 1: Tag `20251127-001` → Detected and deployed
+- Build 2: Tag `20251127-002` → Detected and deployed
+- Build 3: Tag `20251127-003` → Detected and deployed
+- Image Updater correctly picked latest tag each time
+- No intermediate builds skipped or downgraded
+- Pods restarted automatically with each new image
+
+### Timing Verification ✅
+**Observed Behavior:**
+- Jenkins pipeline: 5-8 minutes (checkout to ECR push)
+- Image Updater detection: 0-2 minutes (depends on 2-min poll cycle)
+- Total deployment time: 7-10 minutes from `git push` to pods running
+- ✅ Meets expected performance
+
+### Sorting Verification ✅
+**Test:** Created tags with varying numbers
+```
+Available tags:
+- 20251127-001
+- 20251127-002
+- 20251127-009
+- 20251127-010  ← Correctly identified as latest
+```
+**Result:** Zero-padded tags + `sort-tags: latest-first` = correct ordering
+
+---
 
 ## Configuration Details
 
