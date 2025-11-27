@@ -29,7 +29,7 @@ This document consolidates all planned enhancements, improvements, and future sc
 | Complete Documentation & Portfolio Readiness                   | ✅ Completed (Nov 26, 2025)     | High          |
 | Add Demo Videos and Screenshots to Documentation               | 🔄 In Progress                  | High          |
 | IAM Roles for Service Accounts (IRSA)                          | 🚀 Planned                      | Medium        |
-| Prometheus & Grafana Production Setup                          | 🚀 Planned                      | Medium        |
+| Prometheus & Grafana Production Setup                          | ✅ Completed                    | Medium        |
 | Jenkins Pipeline Enhancements                                  | 🚀 Planned                      | Medium        |
 | Persistent Storage for Stateful Components                     | 🚀 Planned                      | Medium        |
 | Automated SonarQube Data Backup                                | 🚀 Planned                      | Medium        |
@@ -1136,25 +1136,58 @@ Replace IMDSv1 metadata access with proper IRSA for ALB Ingress Controller and o
 ## Medium Priority Enhancements
 
 ### 5. 📋 Prometheus & Grafana Production Setup
-**Status:** 🚀 Planned  
+**Status:** ✅ Completed (November 27, 2025)  
 **Priority:** Medium  
 **Complexity:** Medium  
-**Timeline:** Q2 2026  
-**Estimated Time:** 6-8 hours
+**Timeline:** Completed  
+**Actual Time:** ~4-6 hours
 
 **Description:**
-Enhance current basic monitoring with custom dashboards, alerting, and application-specific metrics.
+Enhanced monitoring stack with persistent storage, NodePort access, custom dashboards, and production-ready configuration.
+
+**Completed Implementation:**
+
+#### **✅ Phase 1: Persistent Storage & Production Deployment**
+- Deployed kube-prometheus-stack via Helm in dedicated `monitoring` namespace
+- Configured persistent storage:
+  - Grafana: 10Gi EBS volume (dashboards, datasources, preferences)
+  - Prometheus: 20Gi EBS volume (metrics data, 15-day retention)
+  - AlertManager: 5Gi EBS volume (alert history, silences)
+- NodePort services for cost-efficient external access:
+  - Grafana: NodePort 32000
+  - Prometheus: NodePort 32090
+- Documented migration from default namespace with cleanup script
+
+#### **✅ Phase 2: Dashboard Configuration**
+- Imported and configured Dashboard 315 (Kubernetes cluster monitoring via Prometheus)
+- Configured dashboard variables:
+  - `namespace`: Filter by Kubernetes namespace
+  - `instance`: Filter node-exporter metrics by node IP
+  - `node`: Filter kube-state-metrics by node name
+- Fixed panel queries for kube-prometheus-stack compatibility:
+  - System services CPU/Memory usage
+  - Pod counts by namespace
+  - Deployment/Service/Ingress counts
+  - Node resource utilization
+- Exported dashboard JSON to `assets/grafana_dashboard/` for version control
+
+#### **✅ Phase 3: Documentation & Backup**
+- Updated GETTING-STARTED.md with complete setup instructions
+- Updated DOCUMENTATION.md with variable setup and query fixes
+- Created monitoring README with backup/restore procedures
+- Committed dashboard JSON for easy redeployment
 
 **Current State:**
-- ✅ Prometheus installed (basic)
-- ✅ Grafana installed (basic)
-- ❌ No custom application metrics
-- ❌ No alerting configured
-- ❌ No notification channels
+- ✅ Production-grade monitoring stack with persistence
+- ✅ Cost-efficient NodePort access (no ALB costs)
+- ✅ Dashboard 315 configured and exported
+- ✅ All variables and queries optimized
+- ✅ Complete documentation and recovery procedures
+- ✅ Version-controlled dashboard configurations
 
-**Planned Enhancements:**
+**Future Enhancements (Optional):**
 
-#### **Phase 1: Custom Dashboards**
+#### **Custom Application Metrics (Future)**
 - **Frontend Dashboard**
   - Page load times
   - API response times
@@ -1175,12 +1208,12 @@ Enhance current basic monitoring with custom dashboards, alerting, and applicati
   - Storage usage
 
 - **Infrastructure Dashboard**
-  - Node resource utilization
-  - Pod CPU/Memory by namespace
-  - Network I/O
-  - Disk usage trends
+  - Node resource utilization ✅ (Already included in Dashboard 315)
+  - Pod CPU/Memory by namespace ✅ (Already included)
+  - Network I/O ✅ (Already included)
+  - Disk usage trends ✅ (Already included)
 
-#### **Phase 2: Application Metrics Instrumentation**
+#### **Application Metrics Instrumentation (Future)**
 ```javascript
 // Backend: Instrument Node.js with Prometheus client
 const promClient = require('prom-client');
@@ -1209,7 +1242,7 @@ app.get('/metrics', async (req, res) => {
 });
 ```
 
-#### **Phase 3: Alerting Rules**
+#### **Alerting Rules (Future)**
 ```yaml
 groups:
   - name: application_alerts
@@ -1260,7 +1293,7 @@ groups:
           summary: "High error rate on {{ $labels.route }}"
 ```
 
-#### **Phase 4: Notification Channels**
+#### **Notification Channels (Future)**
 - **Slack Integration**
   - Real-time alerts to #devops-alerts channel
   - Color-coded by severity (green/yellow/red)
@@ -1281,7 +1314,7 @@ groups:
   - ChatOps commands
   - Ticket system integration (Jira/ServiceNow)
 
-#### **Phase 5: SLO/SLI Dashboards**
+#### **SLO/SLI Dashboards (Future)**
 ```yaml
 # Service Level Objectives
 SLOs:
@@ -2490,7 +2523,7 @@ Enhanced network security policies.
 ### Q2 2026 (Apr-Jun)
 | Enhancement | Status | Priority | Effort |
 |-------------|--------|----------|--------|
-| Prometheus/Grafana Production | 🚀 Planned | Medium | 6-8 hours |
+| Prometheus/Grafana Production | ✅ Completed | Medium | 4-6 hours |
 | Jenkins Pipeline Enhancements | 🚀 Planned | Medium | 8-10 hours |
 | Persistent Storage (MongoDB) | 🚀 Planned | Medium | 4-6 hours |
 | SonarQube Automated Backup | 🚀 Planned | Medium | 2-3 hours |
@@ -2531,13 +2564,15 @@ Enhanced network security policies.
 | Nov 17 | Automation Scripts (shutdown/startup) | 60+ minutes saved on recovery |
 | Nov 17 | Comprehensive Documentation | 9 detailed docs created |
 | Nov 19 | S3 Backup Integration for Scripts | Zero-risk disaster recovery |
+| Nov 27 | Prometheus & Grafana Production Setup | Persistent storage, Dashboard 315, NodePort access |
 
 **Total Impact:** 
 - Recovery time: 67 min → 15 min (78% reduction)
-- Cost savings: ~$2.20/day
+- Cost savings: ~$2.20/day (monitoring via NodePort vs ALB)
 - Zero 504 errors
 - 100% application uptime after fixes
 - Automated backup to S3 for disaster recovery
+- Production-ready monitoring with persistence and version-controlled dashboards
 
 ---
 
@@ -2555,10 +2590,9 @@ Enhanced network security policies.
 
 ### Medium Priority (Complete by Q2 2026)
 7. 🔐 HTTPS Implementation
-8. 📋 Prometheus/Grafana Production Setup
-9. 📋 Jenkins Pipeline Enhancements
-10. 📋 Persistent Storage (MongoDB EBS)
-8. 📋 Automated SonarQube Backup
+8. 📋 Jenkins Pipeline Enhancements
+9. 📋 Persistent Storage (MongoDB EBS)
+10. 📋 Automated SonarQube Backup
 
 ### Quick Wins (< 4 hours)
 - Automated SonarQube Backup (2-3 hours)
