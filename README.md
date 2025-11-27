@@ -128,6 +128,7 @@ Complete visual walkthrough of the CI/CD pipeline execution:
 ![Backend API](assets/screenshots/app_be.png)
 
 ![Backend API](assets/screenshots/app_be_2.png)
+
 *Backend API version endpoint response*
 
 ---
