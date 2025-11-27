@@ -35,16 +35,8 @@ grafana:
         options:
           path: /var/lib/grafana/dashboards/default
 
-  # Pre-configure Prometheus datasource
-  datasources:
-    datasources.yaml:
-      apiVersion: 1
-      datasources:
-      - name: Prometheus
-        type: prometheus
-        url: http://prometheus-kube-prometheus-prometheus:9090
-        access: proxy
-        isDefault: true
+  # Datasources will be auto-discovered by Grafana sidecar
+  # No manual datasource configuration needed
 
 prometheus:
   prometheusSpec:
