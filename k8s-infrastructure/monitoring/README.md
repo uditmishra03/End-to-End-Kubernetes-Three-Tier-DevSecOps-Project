@@ -96,6 +96,29 @@ prometheus-prometheus-kube-...      Bound    pvc-yyyyy-yyyy-yyyy-yyyy-yyyyyyyyyy
 alertmanager-prometheus-kube-...    Bound    pvc-zzzzz-zzzz-zzzz-zzzz-zzzzzzzzzzzz     5Gi        RWO            gp2
 ```
 
+## Export and Backup Dashboards
+
+After configuring dashboards with variables and fixing queries, export them for backup:
+
+1. **In Grafana:** Dashboard settings (gear icon) → JSON Model
+2. **Copy JSON** and save to repository: `assets/grafana_dashboard/`
+3. **Commit to Git**
+
+**Current Exported Dashboard:**
+- `assets/grafana_dashboard/Kubernetes cluster monitoring (via Prometheus)-1764256820704.json`
+- Dashboard ID: 315 (Primary dashboard for this project)
+
+**To restore from backup:**
+- In Grafana: **+ → Import → Upload JSON file**
+- Select file from `assets/grafana_dashboard/` directory
+- Choose Prometheus data source
+- Click Import
+
+**Benefits:**
+- ✅ Quick recovery after cluster rebuild
+- ✅ Consistent dashboards across environments
+- ✅ Version-controlled configurations
+
 ## Access Grafana
 
 ### Get Node IP

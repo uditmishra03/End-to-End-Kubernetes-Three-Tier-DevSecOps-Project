@@ -486,18 +486,103 @@ Before importing dashboards:
    - URL: `http://prometheus-operated:9090`
    - Click **Save & Test**
 
-#### 10.5 Import Dashboards
+#### 10.5 Import Dashboard
 
 In Grafana UI:
 1. **Click + → Import**
-2. **Import these dashboard IDs:**
-   - `15760` - Kubernetes / Views / Global
-   - `15761` - Kubernetes / Views / Namespaces
-   - `15762` - Kubernetes / Views / Pods
-   - `6417` - Kubernetes Cluster Monitoring
-   - `13770` - Kubernetes Cluster (Prometheus)
-3. **Select Prometheus data source** for each
+2. **Import Dashboard ID: `315`** (Kubernetes cluster monitoring via Prometheus)
+   - This is the primary dashboard used in this project
+3. **Select Prometheus data source**
 4. **Click Import**
+
+**Alternative: Import from Repository**
+- Pre-configured dashboard JSON is available at:
+  - `assets/grafana_dashboard/Kubernetes cluster monitoring (via Prometheus)-1764256820704.json`
+- To import: **+ → Import → Upload JSON file**
+
+**Additional Recommended Dashboards (Optional):**
+- `15760` - Kubernetes / Views / Global
+- `15761` - Kubernetes / Views / Namespaces
+- `15762` - Kubernetes / Views / Pods
+- `6417` - Kubernetes Cluster Monitoring
+- `13770` - Kubernetes Cluster (Prometheus)
+
+#### 10.6 Configure Dashboard Variables
+
+For imported dashboards to work correctly, configure these variables:
+
+1. **Add `namespace` variable:**
+   - Name: `namespace`
+   - Type: Query
+   - Data source: Prometheus
+   - Query: `label_values(kube_pod_info, namespace)`
+   - Multi-value: ✅
+   - Include All: ✅
+
+2. **Add `instance` variable (for node metrics):**
+   - Name: `instance`
+   - Type: Query
+   - Data source: Prometheus
+   - Query: `label_values(node_cpu_seconds_total, instance)`
+   - Multi-value: ✅
+   - Include All: ✅
+
+3. **Add `node` variable (for cluster resources):**
+   - Name: `node`
+   - Type: Query
+   - Data source: Prometheus
+   - Query: `label_values(kube_node_info, node)`
+   - Multi-value: ✅
+   - Include All: ✅
+
+#### 10.7 Fix Panel Queries (If Showing "No Data")
+
+Some imported dashboards may need query updates to match kube-prometheus-stack metrics:
+
+**CPU Usage (1m avg):**
+```promql
+100 - avg by(instance)(rate(node_cpu_seconds_total{mode="idle", instance=~"$instance"}[1m])) * 100
+```
+
+**Memory Usage (percent):**
+```promql
+(1 - avg by(instance)(node_memory_MemAvailable_bytes{instance=~"$instance"} / node_memory_MemTotal_bytes{instance=~"$instance"})) * 100
+```
+
+**Pod Count by Namespace:**
+```promql
+count by(namespace) (kube_pod_info{namespace=~"$namespace"})
+```
+
+**Deployment Count:**
+```promql
+count by(namespace) (kube_deployment_created{namespace=~"$namespace"})
+```
+
+#### 10.8 Use Pre-Configured Dashboard
+
+The repository includes a pre-configured dashboard with all variables and queries optimized for kube-prometheus-stack:
+
+**Dashboard Location:**
+- `assets/grafana_dashboard/Kubernetes cluster monitoring (via Prometheus)-1764256820704.json`
+
+**To Import:**
+1. In Grafana, click **+ → Import → Upload JSON file**
+2. Select the JSON file from `assets/grafana_dashboard/`
+3. Choose Prometheus data source
+4. Click Import
+
+**What's Included:**
+- ✅ All variables pre-configured (`namespace`, `instance`, `node`)
+- ✅ All queries fixed for kube-prometheus-stack metrics
+- ✅ Cluster resource panels (pods, deployments, services, ingresses)
+- ✅ System metrics (CPU, memory, network, disk)
+- ✅ Dashboard ID: 315 base configuration
+
+**To Export Updated Dashboard:**
+1. Dashboard settings (gear icon) → JSON Model
+2. Copy JSON and save to `assets/grafana_dashboard/`
+3. Commit to Git for version control
 
 **Time:** ~15-20 minutes
 

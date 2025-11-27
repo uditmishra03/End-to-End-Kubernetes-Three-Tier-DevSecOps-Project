@@ -1576,27 +1576,27 @@ Before importing dashboards, add Prometheus as a data source:
 
 Import pre-built Kubernetes monitoring dashboards:
 
+**Primary Dashboard (Recommended):**
 1. **Click "+" (plus icon) → Import**
-2. **Enter Dashboard ID** and click **Load**:
-   - **15760** - Kubernetes / Views / Global
-   - **15761** - Kubernetes / Views / Namespaces
-   - **15762** - Kubernetes / Views / Pods
-   - **6417** - Kubernetes Cluster Monitoring (via Prometheus)
-   - **13770** - Kubernetes Cluster (Prometheus)
+2. **Enter Dashboard ID: `315`** (Kubernetes cluster monitoring via Prometheus)
 3. **Select Prometheus data source** from dropdown
 4. **Click Import**
-5. **Repeat for each dashboard ID**
 
-**Recommended Dashboards:**
+**Or Import from Repository:**
+- Pre-configured dashboard JSON: `assets/grafana_dashboard/Kubernetes cluster monitoring (via Prometheus)-1764256820704.json`
+- Method: **+ → Import → Upload JSON file**
+- Includes: All variables, fixed queries, cluster resource panels
+
+**Additional Recommended Dashboards (Optional):**
 
 | Dashboard ID | Name | Purpose |
 |--------------|------|----------|
+| 315 | Kubernetes cluster monitoring | **Primary dashboard (used in this project)** |
 | 15760 | Kubernetes / Views / Global | Cluster overview |
 | 15761 | Kubernetes / Views / Namespaces | Namespace-level metrics |
 | 15762 | Kubernetes / Views / Pods | Pod-level details |
 | 6417 | Kubernetes Cluster Monitoring | Complete cluster health |
 | 13770 | Kubernetes Cluster | Node and pod metrics |
-| 315 | Kubernetes cluster monitoring | Alternative cluster view |
 
 ### 13.4 Current Dashboards
 
@@ -1606,7 +1606,103 @@ Pre-installed dashboards from kube-prometheus-stack:
 - **Kubernetes / Compute Resources / Node (Pods)**
 - **Node Exporter / Nodes**
 
-### 13.3 Planned Enhancements 🚀
+### 13.5 Configure Dashboard Variables
+
+For dashboards to display data correctly with kube-prometheus-stack, configure these variables:
+
+#### Variable: `namespace`
+- **Purpose:** Filter metrics by Kubernetes namespace
+- **Type:** Query
+- **Query:** `label_values(kube_pod_info, namespace)`
+- **Data source:** Prometheus
+- **Multi-value:** Yes
+- **Include All:** Yes
+
+#### Variable: `instance`
+- **Purpose:** Filter node-exporter metrics by instance (node IP)
+- **Type:** Query
+- **Query:** `label_values(node_cpu_seconds_total, instance)`
+- **Data source:** Prometheus
+- **Multi-value:** Yes
+- **Include All:** Yes
+
+#### Variable: `node`
+- **Purpose:** Filter kube-state-metrics by node name
+- **Type:** Query
+- **Query:** `label_values(kube_node_info, node)`
+- **Data source:** Prometheus
+- **Multi-value:** Yes
+- **Include All:** Yes
+
+### 13.6 Fix Common Panel Query Issues
+
+Imported dashboards may show "No data" due to metric name mismatches. Use these updated queries:
+
+#### System Services CPU Usage (1m avg)
+```promql
+100 - avg by(instance)(rate(node_cpu_seconds_total{mode="idle", instance=~"$instance"}[1m])) * 100
+```
+**Unit:** `Percent (0-100)`  
+**Legend:** `{{instance}}`
+
+#### System Services Memory Usage
+```promql
+(1 - avg by(instance)(node_memory_MemAvailable_bytes{instance=~"$instance"} / node_memory_MemTotal_bytes{instance=~"$instance"})) * 100
+```
+**Unit:** `Percent (0-100)`  
+**Legend:** `{{instance}}`
+
+#### Pods Count by Namespace
+```promql
+count by(namespace) (kube_pod_info{namespace=~"$namespace"})
+```
+**Unit:** `none`  
+**Legend:** `{{namespace}}`
+
+#### Deployments Count
+```promql
+count by(namespace) (kube_deployment_created{namespace=~"$namespace"})
+```
+
+#### Services Count
+```promql
+count by(namespace) (kube_service_info{namespace=~"$namespace"})
+```
+
+#### Ingress Count
+```promql
+count by(namespace) (kube_ingress_info{namespace=~"$namespace"})
+```
+
+### 13.7 Export and Backup Dashboards
+
+To preserve your configured dashboards:
+
+1. **In Grafana:** Dashboard settings (gear icon) → JSON Model
+2. **Copy JSON** and save to: `assets/grafana_dashboard/`
+3. **Commit to Git** for version control and easy restoration
+
+**Current Exported Dashboard:**
+- `assets/grafana_dashboard/Kubernetes cluster monitoring (via Prometheus)-1764256820704.json`
+- Dashboard ID: 315 (Kubernetes cluster monitoring)
+- Includes: Variables, fixed queries, cluster resource panels
+
+**To restore:**
+```bash
+# In Grafana UI
+1. Click + → Import
+2. Upload JSON file from assets/grafana_dashboard/
+3. Select Prometheus data source
+4. Click Import
+```
+
+**Benefits:**
+- ✅ Backup of all dashboard configurations
+- ✅ Quick recovery after cluster rebuild
+- ✅ Version-controlled dashboard evolution
+- ✅ Share consistent dashboards across teams
+
+### 13.8 Planned Enhancements 🚀
 
 The current monitoring setup provides basic infrastructure metrics. For planned enhancements including:
 - Application-specific dashboards (Frontend, Backend, Database)
