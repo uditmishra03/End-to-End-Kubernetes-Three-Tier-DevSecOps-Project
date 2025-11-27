@@ -76,19 +76,24 @@ Complete visual walkthrough of the CI/CD pipeline execution:
 *ArgoCD showing healthy and synced application status*
 
 ![Image Updater](assets/screenshots/image_updater.png)
+
 *ArgoCD Image Updater detecting and deploying new ECR images*
 
 ![Deployment Details](assets/screenshots/pod_status.png)
+
 *Kubernetes deployment details with pod status*
 
 ### Kubernetes Cluster
 ![EKS Cluster Nodes](assets/screenshots/nodes.png)
+
 *EKS cluster nodes and resource utilization*
 
 ![Running Pods](assets/screenshots/pod_status.png)
+
 *All pods running in three-tier namespace*
 
 ![Services & Ingress](assets/screenshots/svc_ing.png)
+
 *Kubernetes services and ALB ingress configuration*
 
 ### Monitoring Stack
