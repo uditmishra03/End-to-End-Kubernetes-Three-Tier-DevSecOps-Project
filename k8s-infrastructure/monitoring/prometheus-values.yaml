@@ -50,6 +50,10 @@ grafana:
 
 prometheus:
   prometheusSpec:
+    # Configure external URL for subpath deployment
+    externalUrl: https://monitoring.tarang.cloud/prometheus
+    routePrefix: /prometheus
+
     # Enable persistent storage for Prometheus metrics data
     storageSpec:
       volumeClaimTemplate:
