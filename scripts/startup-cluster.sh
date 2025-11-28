@@ -641,6 +641,47 @@ else
 fi
 
 ################################################################################
+# Step 10.5: Display DNS Update Instructions
+################################################################################
+print_header "Step 10.5: DNS Configuration Required"
+
+if [[ -n "$ALB_URL" ]]; then
+    echo ""
+    echo "⚠️  ${YELLOW}IMPORTANT: ALB DNS HAS CHANGED!${NC}"
+    echo "=========================================="
+    echo ""
+    echo "The Application Load Balancer has a new DNS hostname after cluster recreation."
+    echo "You need to update DNS CNAME records on ${BLUE}Hostinger${NC} (not Route53):"
+    echo ""
+    echo "  New ALB DNS: ${GREEN}$ALB_DNS${NC}"
+    echo ""
+    echo "📝 Manual Update Required on Hostinger:"
+    echo "  1. Login to Hostinger DNS panel: https://hpanel.hostinger.com"
+    echo "  2. Navigate to: Domains → tarang.cloud → DNS Records"
+    echo "  3. Update CNAME record for: ${BLUE}todo.tarang.cloud${NC}"
+    echo "     - Type: CNAME"
+    echo "     - Value: $ALB_URL"
+    echo "     - TTL: 300 (or keep default)"
+    echo ""
+    echo "  4. Update CNAME record for: ${BLUE}monitoring.tarang.cloud${NC}"
+    echo "     - Type: CNAME"
+    echo "     - Value: $ALB_URL"
+    echo "     - TTL: 300 (or keep default)"
+    echo ""
+    echo "  5. Save changes and wait 5-15 minutes for DNS propagation"
+    echo ""
+    echo "⏱️  DNS propagation typically takes:"
+    echo "  - Hostinger: 5-15 minutes"
+    echo "  - Global DNS: Up to 30 minutes (depending on TTL)"
+    echo ""
+    echo "🔍 Verify DNS update with:"
+    echo "  dig +short todo.tarang.cloud"
+    echo "  dig +short monitoring.tarang.cloud"
+    echo ""
+    print_warning "DNS update must be done manually on Hostinger"
+fi
+
+################################################################################
 # Step 11: Generate Startup Report
 ################################################################################
 print_header "Step 11: Generating Startup Report"
