@@ -97,10 +97,10 @@ Complete visual walkthrough of the CI/CD pipeline execution:
 *Kubernetes services and ALB ingress configuration*
 
 ### Monitoring Stack
-![Prometheus Targets](assets/screenshots/prometheus.png)
+![Prometheus Targets](assets/screenshots/prometheus_2.png)
 *Prometheus targets showing all monitored endpoints*
 
-![Grafana Dashboard](assets/screenshots/grafana_db_0.png)
+![Grafana Dashboard](assets/screenshots/grafana_db_00.png)
 *Grafana Dashboard 315 - Kubernetes cluster monitoring*
 
 ![Grafana Dashboard](assets/screenshots/grafana_db_01.png)

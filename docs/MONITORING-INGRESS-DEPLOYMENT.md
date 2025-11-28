@@ -244,7 +244,53 @@ kubectl get ingress -n monitoring monitoring-ingress
 
 **Default Grafana credentials:**
 - Username: `admin`
-- Password: `admin` (change in production!)
+- Password: `admin` (configured in `prometheus-values.yaml` - **change in production!**)
+
+### Step 7: Configure Grafana Datasource
+
+After deployment, Grafana needs to be configured to query Prometheus.
+
+**Access Grafana:**
+```bash
+# Open browser to Grafana
+open https://monitoring.tarang.cloud/grafana
+
+# Login with credentials: admin / admin
+```
+
+**Add Prometheus Datasource:**
+1. Navigate to **Configuration** (⚙️ gear icon) → **Data Sources**
+2. Click **"Add data source"**
+3. Select **"Prometheus"**
+4. Configure:
+   - **Name:** `Prometheus`
+   - **URL:** `http://prometheus-kube-prometheus-prometheus:9090/prometheus`
+     - ⚠️ Use internal ClusterIP service URL (not external Ingress)
+     - Include `/prometheus` suffix because of `routePrefix` configuration
+   - **Access:** `Server` (Grafana accesses Prometheus within cluster)
+   - **Auth:** No authentication
+   - **TLS:** Skip TLS certificate verification
+5. Click **"Save & Test"**
+6. Verify: Should show **"✅ Data source is working"**
+
+**Test datasource connectivity (optional):**
+```bash
+# From Grafana pod, test Prometheus API
+kubectl -n monitoring exec -it deploy/prometheus-grafana -- \
+  curl -s http://prometheus-kube-prometheus-prometheus:9090/prometheus/api/v1/status/buildinfo | jq
+```
+
+Expected: JSON response with Prometheus version
+
+**Import Kubernetes dashboards:**
+1. Click **"+"** → **Import**
+2. Enter dashboard ID: **315** (Kubernetes cluster monitoring)
+3. Select **Prometheus** datasource
+4. Click **Import**
+
+**Or import from file:**
+- Path: `assets/grafana_dashboard/Kubernetes cluster monitoring (via Prometheus)-1764256820704.json`
+- Method: **+ → Import → Upload JSON file**
 
 ## 🔍 Validation & Troubleshooting
 
@@ -314,6 +360,46 @@ kubectl describe ingress monitoring-ingress -n monitoring
 # EC2 → Load Balancers → Target Groups → Health Status
 ```
 
+**5. Grafana Datasource Shows "404 Not Found" Error**
+
+**Cause:** Incorrect Prometheus URL or missing routePrefix configuration  
+**Symptoms:** Grafana datasource test fails with "404 Not Found - There was an error returned querying the Prometheus API"
+
+**Solution:**
+1. **Verify Prometheus routePrefix configuration** in `prometheus-values.yaml`:
+   ```yaml
+   prometheus:
+     prometheusSpec:
+       externalUrl: https://monitoring.tarang.cloud/prometheus
+       routePrefix: /prometheus  # ← Must be set for subpath deployment
+   ```
+
+2. **Update Grafana datasource URL** to include the routePrefix:
+   - Correct: `http://prometheus-kube-prometheus-prometheus:9090/prometheus`
+   - Incorrect: `http://prometheus-kube-prometheus-prometheus:9090` (missing `/prometheus` suffix)
+
+3. **Test connectivity from Grafana pod:**
+   ```bash
+   kubectl -n monitoring exec -it deploy/prometheus-grafana -- \
+     curl -s http://prometheus-kube-prometheus-prometheus:9090/prometheus/api/v1/status/buildinfo
+   ```
+   Expected: JSON response with `"status":"success"`
+
+4. **If still failing, check service names:**
+   ```bash
+   # Verify actual Prometheus service name (depends on Helm release name)
+   kubectl get svc -n monitoring | grep prometheus
+   
+   # If release name is "prometheus", service is: prometheus-kube-prometheus-prometheus
+   # If release name is different, adjust datasource URL accordingly
+   ```
+
+**Alternative (if you prefer root path):**
+- Remove `routePrefix` from prometheus-values.yaml
+- Upgrade Helm: `helm upgrade prometheus ... --values prometheus-values.yaml`
+- Update Grafana datasource to: `http://prometheus-kube-prometheus-prometheus:9090`
+- Note: External Prometheus URL will still work via Ingress path routing
+
 ## 📊 Cost Summary
 
 | Component | Monthly Cost | Notes |
@@ -328,102 +414,43 @@ kubectl describe ingress monitoring-ingress -n monitoring
 
 ## 📝 Operational Notes
 
-### Monitoring Health Checks
+### External Health Monitoring
 
-The monitoring stack itself should be monitored externally to detect failures:
-
-**Recommended external checks:**
-1. **CloudWatch Alarms** on ALB target health
-   ```bash
-   aws cloudwatch put-metric-alarm \
-     --alarm-name monitoring-ingress-unhealthy \
-     --metric-name UnHealthyHostCount \
-     --namespace AWS/ApplicationELB \
-     --statistic Average \
-     --threshold 1 \
-     --comparison-operator GreaterThanOrEqualToThreshold
-   ```
-
-2. **External uptime monitoring** (e.g., UptimeRobot, Pingdom)
-   - Monitor: `https://monitoring.tarang.cloud/grafana/api/health`
-   - Alert when unavailable
-
-### Backup & Disaster Recovery
-
-**Grafana dashboards:**
+Monitor the monitoring stack externally using CloudWatch or uptime services:
 ```bash
-# Export all dashboards
-kubectl exec -n monitoring deployment/kube-prometheus-stack-grafana -- \
-  grafana-cli admin export-dashboard --output /tmp/dashboards
-
-# Copy to local
-kubectl cp monitoring/POD_NAME:/tmp/dashboards ./grafana-backup/
+# Monitor endpoint
+https://monitoring.tarang.cloud/grafana/api/health
 ```
 
-**Prometheus data:**
-- Already persistent via EBS (survives pod restarts)
-- Snapshot EBS volumes for backups
-- Consider Prometheus Remote Write for off-cluster backup
+### Backup
 
-### Upgrade Considerations
+**Grafana dashboards:** Stored in persistent 10Gi EBS volume  
+**Prometheus data:** Stored in persistent 20Gi EBS volume (15 days retention)
 
-When upgrading the monitoring stack:
+### Helm Upgrades
+
 ```bash
-# Check current chart version
-helm list -n monitoring
-
-# Update chart repository
-helm repo update
-
-# Upgrade with values
-helm upgrade kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+helm upgrade prometheus prometheus-community/kube-prometheus-stack \
   --namespace monitoring \
-  --values k8s-infrastructure/monitoring/prometheus-values.yaml \
-  --reuse-values
+  --values k8s-infrastructure/monitoring/prometheus-values.yaml
 ```
-
-## 🔄 Rollback Procedure
-
-If issues occur, rollback to NodePort access:
-
-```bash
-# Revert prometheus-values.yaml services to NodePort
-# Remove monitoring-ingress.yaml
-kubectl delete ingress monitoring-ingress -n monitoring
-
-# Access via node IP (temporary)
-kubectl get nodes -o wide
-# Grafana: http://<NODE-IP>:32000
-```
-
-## 📚 Related Documentation
-
-- [EKS RBAC Access & Visibility Fix](./fixes/EKS-RBAC-Access-Visibility.md)
-- [AWS Load Balancer Controller Documentation](https://kubernetes-sigs.github.io/aws-load-balancer-controller/)
-- [Prometheus Operator Documentation](https://prometheus-operator.dev/)
-- [Grafana Configuration Reference](https://grafana.com/docs/grafana/latest/setup-grafana/configure-grafana/)
-
-## 🎓 Key Takeaways
-
-✅ **What we achieved:**
-- Stable external access to Prometheus and Grafana via custom domain
-- Zero additional infrastructure cost (shared ALB)
-- Production-ready HTTPS with ACM certificates
-- Path-based routing for clean URLs
-
-⚠️ **What we sacrificed:**
-- Monitoring availability dependent on cluster health
-- Cannot monitor cluster-level failures independently
-- Not suitable for multi-cluster environments
-
-🚀 **Migration readiness:**
-- Architecture supports gradual migration to external monitoring
-- Prometheus Remote Write can be enabled without disruption
-- Clear triggers documented for when to migrate
 
 ---
 
-**Document Version:** 1.0  
+**Document Version:** 2.0  
 **Last Updated:** November 28, 2025  
-**Author:** DevSecOps Team  
-**Review Date:** Quarterly or when application traffic exceeds 50k requests/day
+**Review:** Quarterly or when traffic exceeds 50k requests/day
+
+## 📝 Change Log
+
+### Version 2.0 - November 28, 2025
+- Deployed shared ALB architecture with path-based routing
+- Converted services from NodePort to ClusterIP
+- Configured subpath routing for Grafana (`/grafana`) and Prometheus (`/prometheus`)
+- Set up DNS: `monitoring.tarang.cloud` → ALB
+- Configured Grafana datasource with internal service URL
+- Cost savings: $32/month (avoided 2 NLBs)
+
+### Version 1.0 - November 2025
+- Initial deployment guide with architectural decisions
+
