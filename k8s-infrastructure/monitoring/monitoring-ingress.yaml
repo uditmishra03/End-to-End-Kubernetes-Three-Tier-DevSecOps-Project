@@ -39,7 +39,9 @@ metadata:
     # SSL/TLS Configuration
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
     alb.ingress.kubernetes.io/ssl-redirect: '443'
-    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:296062548155:certificate/eb2cce15-9f65-4db3-bab7-3a139811c87d
+    # Using wildcard cert temporarily until monitoring.tarang.cloud cert is validated
+    # TODO: Change to arn:aws:acm:us-east-1:296062548155:certificate/eb2cce15-9f65-4db3-bab7-3a139811c87d once issued
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:296062548155:certificate/d96a5918-4b5a-4c40-981a-f78468a3d3d8
 
     # Health Check Configuration
     alb.ingress.kubernetes.io/healthcheck-path: /api/health
@@ -61,7 +63,7 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: kube-prometheus-stack-grafana
+            name: prometheus-grafana
             port:
               number: 80
 
@@ -70,7 +72,7 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: kube-prometheus-stack-prometheus
+            name: prometheus-kube-prometheus-prometheus
             port:
               number: 9090
 
@@ -79,6 +81,6 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: kube-prometheus-stack-prometheus
+            name: prometheus-kube-prometheus-prometheus
             port:
               number: 9090
