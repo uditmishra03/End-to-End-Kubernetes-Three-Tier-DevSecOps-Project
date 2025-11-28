@@ -238,16 +238,19 @@ End-to-end **DevSecOps** implementation for a **Three-Tier Web Application** on 
 └─────────────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────────────┐
-│                     MONITORING & OBSERVABILITY (Namespace: default)                 │
+│                     MONITORING & OBSERVABILITY (Namespace: monitoring)              │
 │  ┌──────────────────────┐              ┌──────────────────────┐                     │
 │  │   Prometheus         │              │   Grafana            │                     │
 │  │   - Metrics Collection──────────────►  - Dashboards        │                     │
 │  │   - Service Discovery│              │  - Visualizations    │                     │
 │  │   - Alert Rules      │              │  - Alerting          │                     │
+│  │   - Persistent (20Gi)│              │  - Persistent (10Gi) │                     │
 │  └──────────────────────┘              └──────────────────────┘                     │
-│             ▲                                                                       │
-│             │ Scrape Metrics                                                        │
-│             └─────────────── From All Pods & Services                               │
+│             ▲                                     │                                 │
+│             │ Scrape Metrics                      │ Shared ALB Ingress              │
+│             └─── From All Pods & Services         │ (/grafana, /prometheus)         │
+│                                                   ▼                                 │
+│                           monitoring.tarang.cloud (via Shared ALB)                  │
 └─────────────────────────────────────────────────────────────────────────────────────┘
 ```
 

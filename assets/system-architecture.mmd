@@ -34,18 +34,19 @@ graph TB
             POD2["🟢 Backend Pod(s)<br/>• Node.js API<br/>• Express<br/>• Port: 3500"]
             POD3["🍃 MongoDB Pod(s)<br/>• Database<br/>• Persistent Volume<br/>• Port: 27017"]
             SVC["🔗 Services<br/>• frontend-svc (ClusterIP)<br/>• backend-svc (ClusterIP)<br/>• mongodb-svc (ClusterIP)"]
-            ING["🌐 Ingress<br/>AWS Load Balancer Controller<br/>• ALB<br/>• Path-based routing"]
+            ING["🌐 Ingress<br/>AWS Load Balancer Controller<br/>• Shared ALB (Group: shared-alb)<br/>• Path-based routing"]
+        end
+        
+        subgraph MON["Namespace: monitoring"]
+            PROM["📈 Prometheus<br/>• Metrics Collection<br/>• Service Discovery<br/>• Alert Rules<br/>• Persistent Storage (20Gi)"]
+            GRAF["📉 Grafana<br/>• Dashboards<br/>• Visualizations<br/>• Alerting<br/>• Persistent Storage (10Gi)"]
+            MON_ING["🌐 Monitoring Ingress<br/>• Shared ALB (Group: shared-alb)<br/>• /grafana → Grafana<br/>• /prometheus → Prometheus"]
         end
     end
     
-    ALB["⚡ AWS APPLICATION LOAD BALANCER<br/>http://&lt;alb-dns&gt; → Frontend<br/>http://&lt;alb-dns&gt;/api → Backend"]
+    ALB["⚡ AWS APPLICATION LOAD BALANCER<br/>todo.tarang.cloud → Frontend<br/>todo.tarang.cloud/api → Backend<br/>monitoring.tarang.cloud/grafana → Grafana<br/>monitoring.tarang.cloud/prometheus → Prometheus"]
     
     USERS["👥 END USERS"]
-    
-    subgraph Monitoring["📊 MONITORING & OBSERVABILITY"]
-        PROM["📈 Prometheus<br/>• Metrics Collection<br/>• Service Discovery<br/>• Alert Rules"]
-        GRAF["📉 Grafana<br/>• Dashboards<br/>• Visualizations<br/>• Alerting"]
-    end
     
     %% Connections - Developer to GitHub
     DEV -->|Push Code| GH1
@@ -76,13 +77,18 @@ graph TB
     POD3 <-->|DB Connection| POD2
     SVC --> ING
     
-    %% EKS to ALB
-    ING -->|Internet Traffic| ALB
+    %% Monitoring Ingress
+    PROM --> MON_ING
+    GRAF --> MON_ING
+    
+    %% EKS to ALB (Shared ALB for both app and monitoring)
+    ING -->|App Traffic| ALB
+    MON_ING -->|Monitoring Traffic| ALB
     
     %% ALB to Users
     ALB -->|HTTP/HTTPS| USERS
     
-    %% Monitoring Connections
+    %% Monitoring Connections (Metrics Scraping)
     POD1 & POD2 & POD3 -.->|Scrape Metrics| PROM
     PROM --> GRAF
     

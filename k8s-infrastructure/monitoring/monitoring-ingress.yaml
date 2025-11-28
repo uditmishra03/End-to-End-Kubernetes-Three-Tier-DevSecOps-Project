@@ -1,0 +1,84 @@
+# Monitoring Ingress - Shares ALB with Application
+#
+# ARCHITECTURAL DECISION:
+# This configuration shares the existing ALB (shared-alb group) with the application
+# to minimize costs ($0 additional vs $16-35/month for separate load balancers).
+#
+# ⚠️ LIMITATIONS & TRADE-OFFS:
+# 1. Monitoring availability tied to EKS cluster health
+#    - If the cluster fails, monitoring goes down with the application
+#    - No independent observability during cluster outages
+# 2. Monitoring cannot outlive application failures
+#    - Critical for production systems requiring 24/7 monitoring
+# 3. Not suitable for multi-cluster monitoring scenarios
+#
+# 📋 FUTURE MIGRATION PATH:
+# When to migrate to separate monitoring infrastructure:
+# - Application serves >100k requests/day
+# - Need monitoring during cluster maintenance windows
+# - Multi-cluster deployment (dev/staging/prod)
+# - Compliance requires isolated monitoring
+# - Budget allows for dedicated infrastructure ($40-100/month)
+#
+# Migration strategy documented in: docs/monitoring-migration-strategy.md
+#
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: monitoring-ingress
+  namespace: monitoring
+  annotations:
+    # Share the existing ALB created by the application Ingress
+    alb.ingress.kubernetes.io/group.name: shared-alb
+    alb.ingress.kubernetes.io/group.order: '100'
+
+    # ALB Configuration
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+
+    # SSL/TLS Configuration
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:296062548155:certificate/eb2cce15-9f65-4db3-bab7-3a139811c87d
+
+    # Health Check Configuration
+    alb.ingress.kubernetes.io/healthcheck-path: /api/health
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: '30'
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '10'
+    alb.ingress.kubernetes.io/healthy-threshold-count: '2'
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: '3'
+
+spec:
+  ingressClassName: alb
+  rules:
+  # Monitoring domain - requires DNS A record pointing to ALB
+  - host: monitoring.tarang.cloud
+    http:
+      paths:
+      # Grafana Dashboard
+      - path: /grafana
+        pathType: Prefix
+        backend:
+          service:
+            name: kube-prometheus-stack-grafana
+            port:
+              number: 80
+
+      # Prometheus Query UI
+      - path: /prometheus
+        pathType: Prefix
+        backend:
+          service:
+            name: kube-prometheus-stack-prometheus
+            port:
+              number: 9090
+
+      # Prometheus API (for Grafana datasource)
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: kube-prometheus-stack-prometheus
+            port:
+              number: 9090

@@ -13,11 +13,16 @@ grafana:
   # Grafana admin credentials
   adminPassword: admin # Change this in production!
 
-  # Service configuration
+  # Grafana configuration for subpath deployment behind Ingress
+  grafana.ini:
+    server:
+      root_url: https://monitoring.tarang.cloud/grafana
+      serve_from_sub_path: true
+
+  # Service configuration - ClusterIP for Ingress (changed from NodePort)
   service:
-    type: NodePort
+    type: ClusterIP
     port: 80
-    nodePort: 32000
 
   # Enable default dashboards
   defaultDashboardsEnabled: true
@@ -67,11 +72,10 @@ prometheus:
         cpu: 500m
         memory: 2Gi
 
-  # Service configuration
+  # Service configuration - ClusterIP for Ingress (changed from NodePort)
   service:
-    type: NodePort
+    type: ClusterIP
     port: 9090
-    nodePort: 32090
 
 # AlertManager configuration (optional persistent storage)
 alertmanager:
