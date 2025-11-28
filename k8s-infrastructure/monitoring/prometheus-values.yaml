@@ -51,8 +51,9 @@ grafana:
 prometheus:
   prometheusSpec:
     # Configure external URL for subpath deployment
+    # Note: We only set externalUrl for external links, NOT routePrefix
+    # Prometheus serves from root internally, Ingress handles path routing
     externalUrl: https://monitoring.tarang.cloud/prometheus
-    routePrefix: /prometheus
 
     # Enable persistent storage for Prometheus metrics data
     storageSpec:
