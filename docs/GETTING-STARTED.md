@@ -815,6 +815,557 @@ For detailed troubleshooting, see: [DOCUMENTATION.md - Section 14](./DOCUMENTATI
 
 ---
 
+## 🗑️ Infrastructure Cleanup and Teardown
+
+This section provides a complete guide to properly destroy all AWS resources created by this project to avoid unexpected charges.
+
+### 📌 Understanding the Infrastructure Stack
+
+This project creates infrastructure using **three different tools**, which must be destroyed in reverse order:
+
+| Tool | What It Manages | Destruction Method |
+|------|----------------|-------------------|
+| **kubectl/Helm** | K8s applications, services, ingress, ALB | `kubectl delete` / `helm uninstall` |
+| **eksctl** | EKS cluster, node groups, CloudFormation stacks | `eksctl delete cluster` |
+| **Terraform** | Jenkins EC2, VPC, ECR, IAM, Security Groups | `terraform destroy` |
+
+**Why this order matters:**
+1. K8s resources must be deleted first (to remove ALB, EBS volumes created by K8s)
+2. EKS cluster must be deleted before Terraform (cluster may create dependencies)
+3. Terraform destroys the base infrastructure last (VPC, Jenkins, ECR)
+
+---
+
+### ⚠️ Important Pre-Cleanup Considerations
+
+**Before proceeding with cleanup:**
+- ✅ Backup any important data (Grafana dashboards, Jenkins configurations, MongoDB data)
+- ✅ Export environment variables or configurations you might need later
+- ✅ Take note of any custom settings or modifications
+- ✅ Ensure you have committed and pushed any code changes to GitHub
+
+**Resources that will be destroyed:**
+- ✅ EKS Cluster (control plane + worker nodes) - **eksctl managed**
+- ✅ Jenkins EC2 instance and EIP - **Terraform managed**
+- ✅ VPC, subnets, security groups, route tables - **Terraform managed**
+- ✅ ECR repositories and container images - **Terraform managed**
+- ✅ Application Load Balancers (ALB) - **K8s/kubectl managed**
+- ✅ EBS volumes (Jenkins, Prometheus, Grafana, MongoDB) - **Mixed (K8s + Terraform)**
+- ✅ IAM roles and policies - **Mixed (eksctl + Terraform)**
+- ✅ CloudWatch log groups - **Auto-created (manual cleanup if needed)**
+
+---
+
+### Step-by-Step Teardown Process
+
+Follow these steps **in order** to avoid dependency issues and ensure complete cleanup.
+
+---
+
+#### **Step 1: Delete Kubernetes Applications and Services**
+
+First, remove all applications and services from the EKS cluster. This ensures ALBs and other AWS resources created by Kubernetes controllers are properly cleaned up.
+
+```bash
+# Configure kubectl for your EKS cluster (if not already configured)
+aws eks update-kubeconfig --name three-tier-eks-cluster --region us-east-1
+
+# Delete ArgoCD applications (this removes all managed resources)
+kubectl delete application -n argocd backend-app frontend-app database-app ingress-app --wait=true
+
+# Delete Ingress resources (removes ALB)
+kubectl delete ingress -n three-tier mainlb --wait=true
+kubectl delete ingress -n monitoring monitoring-ingress --wait=true
+
+# Delete monitoring stack
+helm uninstall prometheus -n monitoring
+helm uninstall grafana -n monitoring
+
+# Delete ArgoCD
+kubectl delete namespace argocd --wait=true
+
+# Delete application namespace
+kubectl delete namespace three-tier --wait=true
+
+# Delete monitoring namespace
+kubectl delete namespace monitoring --wait=true
+
+# Verify ALB deletion (may take 2-5 minutes)
+aws elbv2 describe-load-balancers --region us-east-1 | grep k8s-sharedalb
+# Should return no results once fully deleted
+```
+
+**Wait Time:** 5-10 minutes for all resources to be deleted properly
+
+**Troubleshooting:**
+- If namespace stuck in `Terminating` state:
+  ```bash
+  kubectl get namespace <namespace> -o json | jq '.spec.finalizers = []' | kubectl replace --raw "/api/v1/namespaces/<namespace>/finalize" -f -
+  ```
+- If ALB not deleted after 10 minutes, manually delete from AWS Console
+
+---
+
+#### **Step 2: Delete EKS Cluster**
+
+Delete the EKS cluster and all associated node groups.
+
+```bash
+# List existing clusters
+eksctl get cluster --region us-east-1
+
+# Delete the cluster (this also deletes all node groups)
+eksctl delete cluster --name three-tier-eks-cluster --region us-east-1 --wait
+
+# Alternative: If you have a cluster config file
+# eksctl delete cluster -f eks-cluster.yaml --wait
+```
+
+**Wait Time:** 15-20 minutes
+
+**What gets deleted:**
+- EKS control plane
+- All node groups (EC2 instances)
+- CloudFormation stacks created by eksctl
+- IAM roles created by eksctl (eksctl-* roles)
+- Security groups created by eksctl
+- Launch templates
+
+**Verify deletion:**
+```bash
+# Check if cluster is deleted
+aws eks list-clusters --region us-east-1
+# Should NOT show three-tier-eks-cluster
+
+# Check CloudFormation stacks
+aws cloudformation list-stacks --region us-east-1 --stack-status-filter DELETE_COMPLETE
+# Should show eksctl-three-tier-eks-cluster-* stacks as DELETE_COMPLETE
+```
+
+**Troubleshooting:**
+- If deletion fails with VPC dependency error:
+  ```bash
+  # Manually delete ENIs (Elastic Network Interfaces)
+  aws ec2 describe-network-interfaces --region us-east-1 --filters "Name=vpc-id,Values=<VPC-ID>" --query 'NetworkInterfaces[*].NetworkInterfaceId' --output text | xargs -n 1 aws ec2 delete-network-interface --region us-east-1 --network-interface-id
+  
+  # Then retry cluster deletion
+  eksctl delete cluster --name three-tier-eks-cluster --region us-east-1 --wait
+  ```
+
+---
+
+#### **Step 3: Delete ECR Repositories (Managed by Terraform)**
+
+**⚠️ IMPORTANT:** If your ECR repositories were created by Terraform (in `Jenkins-Server-TF/ecr_repositories.tf`), **skip this step** - they will be automatically deleted in Step 4 when you run `terraform destroy`.
+
+Only follow this step if you manually created ECR repositories outside of Terraform.
+
+<details>
+<summary>Click to expand: Manual ECR cleanup (only if NOT using Terraform for ECR)</summary>
+
+```bash
+# List ECR repositories
+aws ecr describe-repositories --region us-east-1
+
+# Delete all images in each repository first (repositories must be empty before deletion)
+aws ecr batch-delete-image \
+    --repository-name frontend \
+    --region us-east-1 \
+    --image-ids "$(aws ecr list-images --repository-name frontend --region us-east-1 --query 'imageIds[*]' --output json)" || true
+
+aws ecr batch-delete-image \
+    --repository-name backend \
+    --region us-east-1 \
+    --image-ids "$(aws ecr list-images --repository-name backend --region us-east-1 --query 'imageIds[*]' --output json)" || true
+
+# Delete ECR repositories
+aws ecr delete-repository --repository-name frontend --region us-east-1 --force
+aws ecr delete-repository --repository-name backend --region us-east-1 --force
+
+# Verify deletion
+aws ecr describe-repositories --region us-east-1
+# Should show empty list or not include frontend/backend repos
+```
+
+</details>
+
+**For most users:** Skip to Step 4 - Terraform will handle ECR cleanup automatically.
+
+---
+
+#### **Step 4: Destroy Jenkins Infrastructure with Terraform** ⭐ **PRIMARY DESTRUCTION METHOD**
+
+**This is the main destruction step.** Terraform will automatically destroy all infrastructure it created.
+
+```bash
+# Navigate to Terraform directory
+cd End-to-End-Kubernetes-Three-Tier-DevSecOps-Project/Jenkins-Server-TF
+
+# Verify Terraform state (see what will be destroyed)
+terraform state list
+
+# Review destruction plan
+terraform plan -destroy -var-file=variables.tfvars
+
+# Destroy all Terraform-managed infrastructure
+terraform destroy -var-file=variables.tfvars
+```
+
+**Terraform will prompt for confirmation:**
+```
+Do you really want to destroy all resources?
+  Terraform will destroy all your managed infrastructure, as shown above.
+  There is no undo. Only 'yes' will be accepted to confirm.
+
+  Enter a value: yes    # Type 'yes' and press Enter
+```
+
+**What Terraform automatically destroys:**
+- ✅ Jenkins EC2 instance (c6a.2xlarge or t2.2xlarge)
+- ✅ Elastic IP (EIP) and EIP association
+- ✅ VPC, subnets, internet gateway, route tables
+- ✅ Security groups
+- ✅ IAM roles and policies (defined in Terraform)
+- ✅ IAM instance profiles
+- ✅ ECR repositories (frontend, backend) **if defined in ecr_repositories.tf**
+- ✅ Any other resources defined in .tf files
+
+**Wait Time:** 5-10 minutes
+
+**Alternative: Skip confirmation prompt (use with caution):**
+```bash
+terraform destroy -var-file=variables.tfvars -auto-approve
+```
+
+**Verify Terraform destruction:**
+```bash
+# Check Terraform state is empty
+terraform state list
+# Should return empty (no resources in state)
+
+# Verify specific resources are deleted
+# Check EC2 instances
+aws ec2 describe-instances --region us-east-1 --filters "Name=tag:Name,Values=jenkins-server" --query 'Reservations[*].Instances[*].[InstanceId,State.Name]' --output table
+# Should show 'terminated' state or no results
+
+# Check VPC (if created by Terraform)
+aws ec2 describe-vpcs --region us-east-1 --filters "Name=tag:Name,Values=jenkins-vpc" --query 'Vpcs[*].[VpcId,State]' --output table
+# Should return empty list
+
+# Check EIP (if managed by Terraform)
+aws ec2 describe-addresses --region us-east-1 --query 'Addresses[*].[AllocationId,PublicIp,InstanceId]' --output table
+# Should NOT show Jenkins EIP
+
+# Check ECR repositories (if managed by Terraform)
+aws ecr describe-repositories --region us-east-1
+# Should NOT show frontend/backend repos
+```
+
+**Troubleshooting Terraform destroy failures:**
+
+**Issue 1: Dependency errors (VPC, Security Groups, ENIs)**
+```bash
+# Check for remaining ENIs (Elastic Network Interfaces)
+aws ec2 describe-network-interfaces --region us-east-1 --filters "Name=vpc-id,Values=<VPC-ID>" --query 'NetworkInterfaces[*].[NetworkInterfaceId,Status,Description]' --output table
+
+# If ENIs found, delete them manually
+aws ec2 delete-network-interface --network-interface-id <eni-id> --region us-east-1
+
+# Retry Terraform destroy
+terraform destroy -var-file=variables.tfvars
+```
+
+**Issue 2: EIP still associated**
+```bash
+# Disassociate EIP first
+aws ec2 disassociate-address --association-id <association-id> --region us-east-1
+
+# Then retry Terraform destroy
+terraform destroy -var-file=variables.tfvars
+```
+
+**Issue 3: Security group in use**
+```bash
+# Find what's using the security group
+aws ec2 describe-network-interfaces --region us-east-1 --filters "Name=group-id,Values=<sg-id>" --query 'NetworkInterfaces[*].[NetworkInterfaceId,Description]'
+
+# Delete those resources, then retry Terraform destroy
+```
+
+**Issue 4: ECR repositories not empty**
+```bash
+# If ECR deletion fails, force delete all images first
+aws ecr batch-delete-image \
+    --repository-name frontend \
+    --region us-east-1 \
+    --image-ids "$(aws ecr list-images --repository-name frontend --region us-east-1 --query 'imageIds[*]' --output json)" || true
+
+# Then retry Terraform destroy
+terraform destroy -var-file=variables.tfvars
+```
+
+**Last resort: Force state removal (use with extreme caution)**
+```bash
+# Only if Terraform destroy fails repeatedly and resources are already deleted manually
+terraform state rm <resource_name>  # Remove specific resource from state
+# OR
+rm -rf terraform.tfstate terraform.tfstate.backup  # Nuclear option - use only if all resources confirmed deleted
+```
+
+---
+
+#### **Step 5: Manual Cleanup Verification**
+
+Verify all resources have been deleted and check for any orphaned resources.
+
+```bash
+# Check for remaining EKS clusters
+aws eks list-clusters --region us-east-1
+# Should return empty list
+
+# Check for remaining EC2 instances
+aws ec2 describe-instances --region us-east-1 --filters "Name=instance-state-name,Values=running,pending,stopping,stopped" --query 'Reservations[*].Instances[*].[InstanceId,Tags[?Key==`Name`].Value|[0],State.Name]' --output table
+# Should NOT show jenkins-server or any EKS worker nodes
+
+# Check for Application Load Balancers
+aws elbv2 describe-load-balancers --region us-east-1 --query 'LoadBalancers[*].[LoadBalancerName,DNSName,State.Code]' --output table
+# Should NOT show k8s-sharedalb-* ALBs
+
+# Check for EBS volumes
+aws ec2 describe-volumes --region us-east-1 --filters "Name=status,Values=available,in-use" --query 'Volumes[*].[VolumeId,Size,State,Tags[?Key==`Name`].Value|[0]]' --output table
+# Should NOT show jenkins-server, mongodb-pv, prometheus-pv, or grafana-pv volumes
+
+# Check for Elastic IPs
+aws ec2 describe-addresses --region us-east-1 --query 'Addresses[*].[AllocationId,PublicIp,AssociationId]' --output table
+# Should NOT show Jenkins EIP (eipalloc-0db2aba87e747816b)
+
+# Check for CloudFormation stacks
+aws cloudformation list-stacks --region us-east-1 --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE --query 'StackSummaries[*].[StackName,StackStatus]' --output table
+# Should NOT show active eksctl-* or Jenkins-related stacks
+
+# Check for IAM roles created by project
+aws iam list-roles --query 'Roles[?contains(RoleName, `eksctl`) || contains(RoleName, `jenkins`) || contains(RoleName, `argocd`)].RoleName' --output table
+# Should return empty list
+
+# Check for VPCs
+aws ec2 describe-vpcs --region us-east-1 --query 'Vpcs[*].[VpcId,Tags[?Key==`Name`].Value|[0],CidrBlock]' --output table
+# Should only show default VPC (if any)
+```
+
+---
+
+#### **Step 6: Delete Orphaned Resources (If Any)**
+
+If verification shows any remaining resources, manually delete them.
+
+**Delete orphaned EBS volumes:**
+```bash
+# List available volumes
+aws ec2 describe-volumes --region us-east-1 --filters "Name=status,Values=available" --query 'Volumes[*].VolumeId' --output text
+
+# Delete each volume
+aws ec2 delete-volume --volume-id <volume-id> --region us-east-1
+```
+
+**Delete orphaned security groups:**
+```bash
+# List security groups (excluding default)
+aws ec2 describe-security-groups --region us-east-1 --query 'SecurityGroups[?GroupName!=`default`].[GroupId,GroupName,VpcId]' --output table
+
+# Delete security group
+aws ec2 delete-security-group --group-id <sg-id> --region us-east-1
+```
+
+**Delete orphaned CloudWatch log groups:**
+```bash
+# List log groups related to project
+aws logs describe-log-groups --region us-east-1 --query 'logGroups[?contains(logGroupName, `three-tier`) || contains(logGroupName, `jenkins`) || contains(logGroupName, `eks`)].logGroupName' --output table
+
+# Delete log group
+aws logs delete-log-group --log-group-name <log-group-name> --region us-east-1
+```
+
+**Delete orphaned IAM roles/policies:**
+```bash
+# List roles
+aws iam list-roles --query 'Roles[?contains(RoleName, `eksctl`) || contains(RoleName, `jenkins`)].RoleName' --output table
+
+# Delete role (detach policies first)
+aws iam list-attached-role-policies --role-name <role-name>
+aws iam detach-role-policy --role-name <role-name> --policy-arn <policy-arn>
+aws iam delete-role --role-name <role-name>
+```
+
+---
+
+#### **Step 7: Cost Verification**
+
+After cleanup, verify no charges are accumulating.
+
+```bash
+# Check for running instances
+aws ec2 describe-instances --region us-east-1 --filters "Name=instance-state-name,Values=running" --query 'Reservations[*].Instances[*].[InstanceId,InstanceType,State.Name]' --output table
+
+# Check AWS Cost Explorer (via Console)
+# Navigate to: AWS Console → Billing → Cost Explorer
+# Filter by: Last 7 days, Group by Service
+# Verify: No charges for EC2, EKS, ALB, EBS, ECR
+```
+
+**Expected costs after cleanup:**
+- ✅ EC2: $0/day (no running instances)
+- ✅ EKS: $0/day (cluster deleted)
+- ✅ ALB: $0/day (load balancers deleted)
+- ✅ EBS: $0/day (volumes deleted)
+- ✅ ECR: $0/day (repositories deleted, no storage)
+
+**Possible remaining charges:**
+- ⚠️ S3 storage (Terraform state, logs) - minimal ($0.01-0.10/month)
+- ⚠️ CloudWatch logs retention - minimal ($0.01-0.05/month)
+- ⚠️ NAT Gateway (if not deleted) - **EXPENSIVE** ($30-45/month)
+- ⚠️ Route53 Hosted Zone (if created) - $0.50/month per zone
+
+---
+
+### Summary Checklist
+
+Use this checklist to ensure complete cleanup:
+
+#### Kubernetes Resources (kubectl/Helm)
+- [ ] **Step 1:** Deleted all ArgoCD applications (backend-app, frontend-app, database-app, ingress-app)
+- [ ] **Step 1:** Deleted Ingress resources (mainlb, monitoring-ingress)
+- [ ] **Step 1:** Uninstalled Prometheus and Grafana Helm charts
+- [ ] **Step 1:** Deleted namespaces (argocd, three-tier, monitoring)
+- [ ] **Step 1:** Verified ALB deletion (no k8s-sharedalb-* ALBs exist)
+
+#### EKS Cluster (eksctl)
+- [ ] **Step 2:** Ran `eksctl delete cluster --name three-tier-eks-cluster`
+- [ ] **Step 2:** Verified cluster deletion (no three-tier-eks-cluster in `aws eks list-clusters`)
+- [ ] **Step 2:** Verified CloudFormation stacks deleted (eksctl-* stacks show DELETE_COMPLETE)
+
+#### Terraform Infrastructure (PRIMARY METHOD)
+- [ ] **Step 4:** Ran `terraform destroy -var-file=variables.tfvars` in Jenkins-Server-TF/
+- [ ] **Step 4:** Confirmed destruction by typing 'yes' when prompted
+- [ ] **Step 4:** Verified Jenkins EC2 instance terminated
+- [ ] **Step 4:** Verified VPC, subnets, IGW, route tables deleted
+- [ ] **Step 4:** Verified Security Groups deleted
+- [ ] **Step 4:** Verified EIP released
+- [ ] **Step 4:** Verified IAM roles/policies deleted (Terraform-managed ones)
+- [ ] **Step 4:** Verified ECR repositories deleted (if managed by Terraform)
+- [ ] **Step 4:** Verified `terraform state list` returns empty
+
+#### Final Verification
+- [ ] **Step 5:** No orphaned EC2 instances running
+- [ ] **Step 5:** No orphaned EBS volumes (available state)
+- [ ] **Step 5:** No orphaned Application Load Balancers
+- [ ] **Step 5:** No orphaned Elastic IPs
+- [ ] **Step 5:** No eksctl-* or Jenkins-related CloudFormation stacks active
+- [ ] **Step 5:** No project-related IAM roles remaining
+- [ ] **Step 7:** AWS Cost Explorer shows $0/day for EC2, EKS, ALB, EBS, ECR
+- [ ] **DNS:** Updated/deleted DNS records on Hostinger (todo.tarang.cloud, monitoring.tarang.cloud)
+
+---
+
+### Quick Teardown Commands (Copy-Paste)
+
+For experienced users, here's the complete teardown in one script:
+
+```bash
+#!/bin/bash
+# Complete Infrastructure Teardown Script
+# Run from: End-to-End-Kubernetes-Three-Tier-DevSecOps-Project/
+
+set -e  # Exit on error
+
+echo "=== STEP 1: Deleting Kubernetes Resources ==="
+aws eks update-kubeconfig --name three-tier-eks-cluster --region us-east-1
+kubectl delete application -n argocd backend-app frontend-app database-app ingress-app --wait=true || true
+kubectl delete ingress -n three-tier mainlb --wait=true || true
+kubectl delete ingress -n monitoring monitoring-ingress --wait=true || true
+helm uninstall prometheus -n monitoring || true
+helm uninstall grafana -n monitoring || true
+kubectl delete namespace argocd --wait=true || true
+kubectl delete namespace three-tier --wait=true || true
+kubectl delete namespace monitoring --wait=true || true
+
+echo "Waiting 5 minutes for ALB deletion..."
+sleep 300
+
+echo "=== STEP 2: Deleting EKS Cluster ==="
+eksctl delete cluster --name three-tier-eks-cluster --region us-east-1 --wait
+
+echo "=== STEP 3: Destroying Terraform Infrastructure ==="
+cd Jenkins-Server-TF
+terraform destroy -var-file=variables.tfvars -auto-approve
+
+echo "=== STEP 4: Final Verification ==="
+aws eks list-clusters --region us-east-1
+aws ec2 describe-instances --region us-east-1 --filters "Name=instance-state-name,Values=running" --query 'Reservations[*].Instances[*].[InstanceId,Tags[?Key==`Name`].Value|[0]]' --output table
+aws elbv2 describe-load-balancers --region us-east-1 --query 'LoadBalancers[*].[LoadBalancerName,State.Code]' --output table
+aws ec2 describe-volumes --region us-east-1 --filters "Name=status,Values=available" --query 'Volumes[*].[VolumeId,Size,State]' --output table
+
+echo "=== Teardown Complete! ==="
+echo "Please verify AWS Cost Explorer in 2-3 days to confirm no ongoing charges."
+echo "Remember to update DNS records on Hostinger if needed."
+```
+
+**Usage:**
+```bash
+# Save as teardown.sh
+chmod +x teardown.sh
+./teardown.sh
+```
+
+**⚠️ Warning:** This script destroys ALL infrastructure. Use with caution!
+
+---
+
+### Time Estimates
+
+| Step | Action | Command Time | AWS Wait Time |
+|------|--------|--------------|---------------|
+| **Step 1** | Delete K8s resources | 2 minutes | 5-10 minutes (ALB deletion) |
+| **Step 2** | Delete EKS cluster | 2 minutes | 15-20 minutes |
+| **Step 3** | (Optional) Manual ECR cleanup | 3 minutes | 1-2 minutes |
+| **Step 4** | **Terraform destroy** ⭐ | 2 minutes | 5-10 minutes |
+| **Step 5** | Manual verification | 5-10 minutes | - |
+| **Step 6** | Delete orphaned resources (if any) | 5 minutes | 2-5 minutes |
+| **Step 7** | Cost verification | 5 minutes | - |
+| **Total Time** | **~25-30 minutes** | **~30-50 minutes** |
+
+**Complete teardown time:** 1-1.5 hours (including all wait times)
+
+**Fast track (using automation script):** ~30-40 minutes total
+
+---
+
+### Important Notes
+
+**✅ Recommended Approach:**
+- **Use Terraform destroy** as the primary destruction method for Jenkins infrastructure
+- Let Terraform handle VPC, EC2, ECR, IAM, Security Groups automatically
+- Only manually intervene if Terraform destroy fails
+
+**📋 Destruction Order (CRITICAL):**
+1. **First:** Delete K8s resources (applications, services, ingress) → removes ALB
+2. **Second:** Delete EKS cluster with eksctl → removes cluster and node groups
+3. **Third:** Run `terraform destroy` → removes all Terraform-managed infrastructure
+4. **Fourth:** Verify and clean up any orphaned resources
+
+**⚠️ Common Pitfalls:**
+- **Don't skip Step 1:** K8s-created ALBs must be deleted before EKS cluster deletion
+- **Don't run Terraform destroy first:** It may fail due to VPC dependencies from EKS
+- **Don't manually delete resources managed by Terraform:** Let Terraform handle them
+- **Do wait for deletions to complete:** AWS takes time to fully remove resources
+
+**💡 Pro Tips:**
+- Run `terraform state list` before destroy to see exactly what will be deleted
+- Use `terraform destroy --target=<resource>` to selectively destroy specific resources
+- Keep Terraform state file (`terraform.tfstate`) until all resources are confirmed deleted
+- Check AWS Cost Explorer 2-3 days after teardown to confirm zero charges
+
+---
+
 ## 📚 Additional Resources
 
 - **Complete Technical Documentation:** [DOCUMENTATION.md](./DOCUMENTATION.md)
