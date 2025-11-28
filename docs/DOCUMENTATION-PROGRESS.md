@@ -172,7 +172,7 @@
   - **Status:** Not Started
 
 - [ ] **Step 7: Document CI/CD pipelines**
-  - Explain both frontend and backend Jenkins pipelines with all stages: checkout, SonarQube analysis, security scans, Docker build, and ECR push with semantic versioning
+  - Explain both frontend and backend Jenkins pipelines with all 4 stages: (1) Sonarqube Analysis & Quality Check, (2) Trivy File Scan, (3) Docker Image Build & Push with Buildx, (4) TRIVY Image Scan. Document semantic versioning (YYYYMMDD-BUILD format) and ArgoCD Image Updater integration.
   - **Status:** Not Started
 
 - [ ] **Step 8: Document Kubernetes deployment**

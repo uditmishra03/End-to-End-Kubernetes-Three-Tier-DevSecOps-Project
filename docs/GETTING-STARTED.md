@@ -274,17 +274,14 @@ Set up CI/CD pipelines for backend and frontend applications.
 4. **Save and Build**
 
 **Pipeline Stages:**
-1. **Cleanup Workspace**
-2. **Checkout Code**
-3. **SonarQube Analysis** (Code quality)
-4. **Quality Gate** (Pass/Fail check)
-5. **Install Dependencies** (npm install)
-6. **Trivy FS Scan** (File system security scan)
-7. **Docker Build & Tag** (Build image with YYYYMMDD-BUILD format)
-8. **Trivy Image Scan** (Container security scan)
-9. **Docker Push to ECR** (Push to AWS ECR)
+1. **Sonarqube Analysis & Quality Check** (Combined: Code quality analysis + quality gate)
+2. **Trivy File Scan** (File system security scan)
+3. **Docker Build & Push with Buildx** (Combined: Build image with YYYYMMDD-BUILD format + push to ECR)
+4. **TRIVY Image Scan** (Container security scan)
 
-**Time:** ~15-20 minutes per pipeline
+**Time:** ~30-50 seconds per pipeline (Backend ~31s, Frontend ~51s)
+
+**Note:** Multibranch Pipelines auto-checkout code, so no explicit checkout stage is needed.
 
 **Detailed instructions:** [DOCUMENTATION.md - Section 9](./DOCUMENTATION.md#9-cicd-pipeline-implementation)
 
@@ -447,17 +444,15 @@ helm install prometheus prometheus-community/kube-prometheus-stack -n monitoring
 
 #### 10.2 Access Prometheus
 
-**Via NodePort:**
+**Via HTTPS (Shared ALB - Recommended):**
 ```bash
-# Get node external IP
-kubectl get nodes -o wide
+# Access Prometheus web UI
+https://monitoring.tarang.cloud/prometheus
 
-# Prometheus NodePort: 32090
-# Access URL:
-# http://<NODE-EXTERNAL-IP>:32090/graph
+# Query metrics, view targets, alerts
 ```
 
-**Or via Port Forward:**
+**Or via Port Forward (Local Development):**
 ```bash
 kubectl port-forward -n monitoring svc/prometheus-operated 9090:9090
 # Access at: http://localhost:9090
@@ -465,14 +460,14 @@ kubectl port-forward -n monitoring svc/prometheus-operated 9090:9090
 
 #### 10.3 Access Grafana
 
-**Via NodePort:**
+**Via HTTPS (Shared ALB - Recommended):**
 ```bash
-# Get node external IP
-kubectl get nodes -o wide
+# Access Grafana dashboard
+https://monitoring.tarang.cloud/grafana
 
-# Grafana NodePort: 32000
-# Access URL:
-# http://<NODE-EXTERNAL-IP>:32000
+# Default credentials:
+# Username: admin
+# Password: admin (configured in prometheus-values.yaml)
 ```
 
 **Get Admin Password:**

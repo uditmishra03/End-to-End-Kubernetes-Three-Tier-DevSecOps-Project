@@ -270,8 +270,11 @@ Available tags in ECR:
                     │
                     ▼
 ┌─────────────────────────────────────────────────────────┐
-│ 3. Jenkins Pipeline (5-8 minutes)                       │
-│    Checkout → SonarQube → Build → Trivy → ECR Push     │
+│ 3. Jenkins Pipeline (~30-50 seconds)                    │
+│    Stage 1: SonarQube Analysis & Quality Gate           │
+│    Stage 2: Trivy File Scan                             │
+│    Stage 3: Docker Build & Push to ECR                  │
+│    Stage 4: Trivy Image Scan                            │
 │    Creates tag: 20251127-XXX (zero-padded)             │
 └───────────────────┬─────────────────────────────────────┘
                     │
@@ -414,9 +417,9 @@ annotations:
 
 ### Timing Verification ✅
 **Observed Behavior:**
-- Jenkins pipeline: 5-8 minutes (checkout to ECR push)
+- Jenkins pipeline: ~30-50 seconds (all stages including ECR push)
 - Image Updater detection: 0-2 minutes (depends on 2-min poll cycle)
-- Total deployment time: 7-10 minutes from `git push` to pods running
+- Total deployment time: ~1-2 minutes from `git push` to pods running
 - ✅ Meets expected performance
 
 ### Sorting Verification ✅

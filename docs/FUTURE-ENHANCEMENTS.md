@@ -1006,7 +1006,7 @@ Replace IMDSv1 metadata access with proper IRSA for ALB Ingress Controller and o
 **Actual Time:** ~4-6 hours
 
 **Description:**
-Enhanced monitoring stack with persistent storage, NodePort access, custom dashboards, and production-ready configuration.
+Enhanced monitoring stack with persistent storage, shared ALB with Ingress access, custom dashboards, and production-ready configuration.
 
 **Completed Implementation:**
 
@@ -1016,10 +1016,11 @@ Enhanced monitoring stack with persistent storage, NodePort access, custom dashb
   - Grafana: 10Gi EBS volume (dashboards, datasources, preferences)
   - Prometheus: 20Gi EBS volume (metrics data, 15-day retention)
   - AlertManager: 5Gi EBS volume (alert history, silences)
-- NodePort services for cost-efficient external access:
-  - Grafana: NodePort 32000
-  - Prometheus: NodePort 32090
-- Documented migration from default namespace with cleanup script
+- Configured shared ALB with path-based routing for cost-efficient external access:
+  - Grafana: `https://monitoring.tarang.cloud/grafana`
+  - Prometheus: `https://monitoring.tarang.cloud/prometheus`
+- Migrated from NodePort to ClusterIP services with Ingress
+- Documented migration strategy in `MONITORING-INGRESS-DEPLOYMENT.md`
 
 #### **✅ Phase 2: Dashboard Configuration**
 - Imported and configured Dashboard 315 (Kubernetes cluster monitoring via Prometheus)
@@ -1042,7 +1043,7 @@ Enhanced monitoring stack with persistent storage, NodePort access, custom dashb
 
 **Current State:**
 - ✅ Production-grade monitoring stack with persistence
-- ✅ Cost-efficient NodePort access (no ALB costs)
+- ✅ Cost-efficient shared ALB with Ingress (path-based routing reduces costs)
 - ✅ Dashboard 315 configured and exported
 - ✅ All variables and queries optimized
 - ✅ Complete documentation and recovery procedures
@@ -1221,8 +1222,11 @@ Enhance Jenkins pipelines with parallel execution, automated rollback, advanced 
 
 **Current Flow (Sequential):**
 ```
-Checkout → SonarQube → Trivy FS → Docker Build → ECR Push → Trivy Image
-Total Time: ~6-8 minutes
+Stage 1: SonarQube Analysis & Quality Gate
+Stage 2: Trivy File Scan
+Stage 3: Docker Build & Push to ECR
+Stage 4: Trivy Image Scan
+Total Time: ~30-50 seconds
 ```
 
 **Optimized Flow (Parallel):**
@@ -2427,11 +2431,11 @@ Enhanced network security policies.
 | Nov 17 | Automation Scripts (shutdown/startup) | 60+ minutes saved on recovery |
 | Nov 17 | Comprehensive Documentation | 9 detailed docs created |
 | Nov 19 | S3 Backup Integration for Scripts | Zero-risk disaster recovery |
-| Nov 27 | Prometheus & Grafana Production Setup | Persistent storage, Dashboard 315, NodePort access |
+| Nov 27 | Prometheus & Grafana Production Setup | Persistent storage, Dashboard 315, Shared ALB with Ingress |
 
 **Total Impact:** 
 - Recovery time: 67 min → 15 min (78% reduction)
-- Cost savings: ~$2.20/day (monitoring via NodePort vs ALB)
+- Cost savings: ~$2.20/day (monitoring shared ALB vs dedicated ALB per service)
 - Zero 504 errors
 - 100% application uptime after fixes
 - Automated backup to S3 for disaster recovery

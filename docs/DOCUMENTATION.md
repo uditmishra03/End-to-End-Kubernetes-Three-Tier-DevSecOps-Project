@@ -992,57 +992,43 @@ CMD ["node", "index.js"]
 Two identical pipelines (Frontend & Backend) with the following stages:
 
 ```
-Clean Workspace → Git Checkout → SonarQube Analysis → Quality Gate → 
-Trivy Scan → Docker Build → ECR Push → Trivy Image Scan → Update Deployment
+Stage 1: SonarQube Analysis & Quality Gate Check
+Stage 2: Trivy File Scan (source code vulnerabilities)
+Stage 3: Docker Image Build & Push to ECR with Buildx
+Stage 4: Trivy Image Scan (Docker image vulnerabilities)
 ```
+
+**Note:** Jenkins does NOT update K8s deployments. ArgoCD Image Updater automatically detects new ECR images and triggers deployment updates.
 
 ### 9.2 Pipeline Stages Explained
 
-**1. Workspace Cleanup**
-```groovy
-stage('Cleaning Workspace') {
-    steps { cleanWs() }
-}
-```
+The Jenkins pipeline has **4 main stages** (Multibranch Pipelines auto-checkout code, so no explicit checkout stage):
 
-**2. Code Checkout**
+**1. Sonarqube Analysis & Quality Check**
 ```groovy
-stage('Checkout from Git') {
+stage('Sonarqube Analysis & Quality Check') {
     steps {
-        git credentialsId: 'GITHUB', 
-            url: 'https://github.com/uditmishra03/End-to-End-Kubernetes-Three-Tier-DevSecOps-Project.git'
-    }
-}
-```
-
-**3. SonarQube Code Analysis**
-```groovy
-stage('Sonarqube Analysis') {
-    steps {
-        dir('Application-Code/backend') {  // or frontend
-            withSonarQubeEnv('sonar-server') {
-                sh '''$SCANNER_HOME/bin/sonar-scanner \
-                    -Dsonar.projectName=three-tier-backend \
-                    -Dsonar.projectKey=three-tier-backend'''
+        withSonarQubeEnv('sonar-server') {
+            sh ''' $SCANNER_HOME/bin/sonar-scanner \
+            -Dsonar.projectName=three-tier-be \
+            -Dsonar.projectKey=three-tier-be '''
+        }
+        script {
+            timeout(time: 5, unit: 'MINUTES') {
+                waitForQualityGate abortPipeline: false, credentialsId: 'sonar-token'
             }
         }
     }
 }
 ```
+- **Purpose:** Analyzes code quality and checks quality gate in a single combined stage
+- **Duration:** ~8-10 seconds
+- **Key Points:** 
+  - Uses SonarQube scanner to detect code smells, bugs, and vulnerabilities
+  - Quality gate check integrated in same stage with 5-minute timeout
+  - Does not abort pipeline on quality gate failure (abortPipeline: false)
 
-**4. Quality Gate Check**
-```groovy
-stage('Quality Check') {
-    steps {
-        script {
-            waitForQualityGate abortPipeline: false, 
-                               credentialsId: 'sonar-token'
-        }
-    }
-}
-```
-
-**5. Trivy Filesystem Scan**
+**2. Trivy File Scan**
 ```groovy
 stage('Trivy File Scan') {
     steps {
@@ -1054,46 +1040,64 @@ stage('Trivy File Scan') {
     }
 }
 ```
+- **Purpose:** Scans filesystem for security vulnerabilities in dependencies
+- **Duration:** ~3-5 seconds
+- **Key Points:**
+  - Scans all files in current directory (project source code)
+  - Catches errors to prevent pipeline failure (stage marked UNSTABLE on error)
+  - Outputs scan results to `trivyfs.txt` for review
 
-**6. Docker Image Build**
+**3. Docker Image Build & Push with Buildx**
 ```groovy
-stage("Docker Image Build") {
-    steps {
-        script {
-            sh 'docker system prune -f'
-            sh 'docker build -t ${AWS_ECR_REPO_NAME} .'
-        }
-    }
-}
-```
-
-**7. Push to ECR**
-```groovy
-stage("ECR Image Pushing") {
+stage("Docker Image Build & Push with Buildx") {
     steps {
         script {
             sh 'aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${REPOSITORY_URI}'
-            sh 'docker tag ${AWS_ECR_REPO_NAME} ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER}'
-            sh 'docker push ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER}'
+            sh '''
+                # Create builder if it doesn't exist
+                if ! docker buildx inspect mybuilder > /dev/null 2>&1; then
+                    docker buildx create --name mybuilder --use --bootstrap
+                else
+                    docker buildx use mybuilder
+                fi
+            '''
+            sh 'docker buildx build --platform linux/amd64 -t ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${IMAGE_TAG} --push .'
         }
     }
 }
 ```
+- **Purpose:** Builds Docker image and pushes directly to ECR in a single stage
+- **Duration:** ~15-25 seconds (Frontend ~25s, Backend ~15s due to smaller image size)
+- **Key Points:**
+  - Uses Docker Buildx for efficient multi-platform builds (linux/amd64)
+  - ECR login performed before build
+  - Image tagged with semantic version format: `YYYYMMDD-BUILD` (e.g., `20241120-001`)
+  - `--push` flag pushes image directly to ECR after build (no separate push stage)
+  - Creates/reuses buildx builder instance for caching benefits
 
-**8. Trivy Image Scan**
+**4. TRIVY Image Scan**
 ```groovy
 stage("TRIVY Image Scan") {
     steps {
         script {
             catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-                sh 'trivy image ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER} > trivyimage.txt'
+                sh 'trivy image ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${IMAGE_TAG} > trivyimage.txt'
             }
         }
     }
 }
 ```
+- **Purpose:** Scans the built Docker image for vulnerabilities
+- **Duration:** ~5-8 seconds
+- **Key Points:**
+  - Scans image directly from ECR repository
+  - Catches errors to prevent pipeline failure (stage marked UNSTABLE on error)
+  - Outputs scan results to `trivyimage.txt` for review
+  - Scans for OS package vulnerabilities and application dependencies
 
-**9. ArgoCD Image Updater Integration**
+**Pipeline Does Not Update Kubernetes Manifests**
+
+**Pipeline Does Not Update Kubernetes Manifests**
 
 The pipeline **does not** update Kubernetes manifests. Instead:
 
@@ -1118,6 +1122,8 @@ post {
 }
 ```
 
+**Total Pipeline Duration:** ~30-50 seconds (Backend ~31s, Frontend ~51s)
+
 ### 9.3 Pipeline Environment Variables
 
 ```groovy
@@ -1127,8 +1133,12 @@ environment {
     AWS_ECR_REPO_NAME = credentials('ECR_REPO01')  // or ECR_REPO02
     AWS_DEFAULT_REGION = 'us-east-1'
     REPOSITORY_URI = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/"
+    IMAGE_TAG = "${new Date().format('yyyyMMdd')}-${String.format('%03d', BUILD_NUMBER.toInteger())}"
 }
 ```
+- **IMAGE_TAG:** Date-based semantic versioning (e.g., `20241120-001`)
+  - Zero-padded to 3 digits for proper lexicographic sorting
+  - Format ensures ArgoCD Image Updater can correctly identify latest image
 
 ### 9.4 Trigger Pipeline
 
@@ -1416,8 +1426,11 @@ argocd app create three-tier-app \
                     │
                     ▼
 ┌─────────────────────────────────────────────────────────┐
-│ 3. Jenkins Pipeline (5-8 minutes)                       │
-│    Checkout → SonarQube → Build → Trivy → ECR Push      │
+│ 3. Jenkins Pipeline (~30-50 seconds)                    │
+│    Stage 1: SonarQube Analysis & Quality Check          │
+│    Stage 2: Trivy File Scan (vulnerabilities)           │
+│    Stage 3: Docker Image Build & Push with Buildx       │
+│    Stage 4: Trivy Image Scan (Docker image)             │
 │    Creates tag: YYYYMMDD-XXX (zero-padded)              │
 └───────────────────┬─────────────────────────────────────┘
                     │
@@ -1453,8 +1466,19 @@ argocd app create three-tier-app \
 │    - Application updated!                               │
 └─────────────────────────────────────────────────────────┘
 
-Total Time: 7-10 minutes (5-8 min pipeline + 0-2 min Image Updater)
+Total Time: ~1-2 minutes (30-50 sec pipeline + 0-2 min Image Updater)
 ```
+
+**Pipeline Stage Details:**
+- **Stage 1:** SonarQube code quality analysis with quality gate check (5 min timeout)
+- **Stage 2:** Trivy filesystem scan to detect vulnerabilities in source code
+- **Stage 3:** Docker image build using BuildKit and push to ECR (includes login)
+- **Stage 4:** Trivy image scan to detect vulnerabilities in final Docker image
+
+**Build Time Breakdown:**
+- Frontend pipeline: ~50 seconds
+- Backend pipeline: ~30 seconds
+- Time varies based on Docker layer caching and network speed
 
 **Key Points:**
 - **Jenkins:** Builds image and pushes to ECR (does NOT update K8s manifests)
@@ -1480,7 +1504,30 @@ argocd app sync three-tier-app  # Manual sync (rarely needed with auto-sync)
 
 ## 12. Monitoring with Prometheus (Namespace: monitoring)
 
-### 12.1 Install Prometheus using Helm
+### 12.1 Architecture Overview
+
+**Deployment Strategy:** Shared ALB with Path-Based Routing  
+**Access URLs:**
+- Grafana: `https://monitoring.tarang.cloud/grafana`
+- Prometheus: `https://monitoring.tarang.cloud/prometheus`
+
+**Cost Optimization:** Monitoring reuses the existing application ALB (`shared-alb` group), saving ~$16/month compared to separate NLB services.
+
+**⚠️ Important Limitations:**
+- **In-cluster monitoring:** Monitoring availability is tied to EKS cluster health
+- **Cannot outlive cluster failures:** Monitoring goes down if the cluster experiences major issues
+- **Single-cluster only:** Does not support multi-cluster monitoring scenarios
+
+**When to migrate to external monitoring:**
+- Application traffic exceeds 100k requests/day
+- Need monitoring during cluster maintenance windows
+- Multi-cluster deployment (dev/staging/prod)
+- Compliance requires isolated monitoring
+- Budget allows $40-100/month for dedicated infrastructure
+
+See `docs/MONITORING-INGRESS-DEPLOYMENT.md` for detailed architectural trade-offs and migration strategies.
+
+### 12.2 Install Prometheus with Persistent Storage
 
 ```bash
 # Add Prometheus Helm repo
@@ -1490,32 +1537,66 @@ helm repo update
 # Create monitoring namespace
 kubectl create namespace monitoring
 
-# Install Prometheus stack (includes Grafana)
+# Install Prometheus stack with persistent storage and Ingress configuration
 helm install prometheus prometheus-community/kube-prometheus-stack \
-  --namespace monitoring
+  --namespace monitoring \
+  --values k8s-infrastructure/monitoring/prometheus-values.yaml
 
 # Verify installation
 kubectl get pods -n monitoring | grep prometheus
 kubectl get svc -n monitoring | grep prometheus
+kubectl get pvc -n monitoring
 ```
 
-### 12.2 Access Prometheus
+**Storage Configuration:**
+- Grafana: 10Gi EBS volume (dashboards and settings)
+- Prometheus: 20Gi EBS volume (15 days retention)
+- AlertManager: 5Gi EBS volume
+- StorageClass: `gp2` (AWS EBS)
 
-**Via Ingress (ALB):**
+### 12.3 Deploy Monitoring Ingress
+
 ```bash
-kubectl get ingress -n monitoring
-kubectl describe ingress prometheus-ingress -n monitoring
+# Apply updated application Ingress (with shared ALB group annotation)
+kubectl apply -f k8s-infrastructure/ingress.yaml
+
+# Apply monitoring Ingress (shares the same ALB)
+kubectl apply -f k8s-infrastructure/monitoring/monitoring-ingress.yaml
+
+# Verify both Ingresses share the same ALB
+kubectl get ingress -A
+
+# Both should show the SAME ALB address
 ```
-Use the `ADDRESS` DNS from the ingress to access Prometheus on port 80, e.g.:
-`http://<prometheus-ingress-dns>/graph`
 
-**Or via Port Forward (for local access):**
+### 12.4 Configure DNS
+
+Create CNAME record in your DNS provider pointing to the shared ALB:
+
 ```bash
-kubectl port-forward -n monitoring svc/prometheus-operated 9090:9090
+# Get the ALB DNS name
+kubectl get ingress -n three-tier mainlb -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+```
+
+**DNS Configuration:**
+- Record Type: `CNAME`
+- Name: `monitoring.tarang.cloud`
+- Value: `<ALB-DNS-from-above>` (e.g., `k8s-sharedalb-xxxx.us-east-1.elb.amazonaws.com`)
+- TTL: 300 seconds
+
+### 12.5 Access Prometheus
+
+**Via HTTPS (Shared ALB):**
+- URL: `https://monitoring.tarang.cloud/prometheus`
+- Features: Path-based routing, TLS termination, cross-AZ load balancing
+
+**Or via Port Forward (for local testing):**
+```bash
+kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 9090:9090
 ```
 Access: `http://localhost:9090`
 
-### 12.3 Key Metrics Collected
+### 12.6 Key Metrics Collected
 
 - **Cluster Metrics:** CPU, Memory, Disk usage
 - **Node Metrics:** Node health, resource utilization
@@ -1523,7 +1604,7 @@ Access: `http://localhost:9090`
 - **Application Metrics:** HTTP requests, response times
 - **Custom Metrics:** Application-specific metrics
 
-### 12.4 Prometheus Queries (Examples)
+### 12.7 Prometheus Queries (Examples)
 
 ```promql
 # CPU usage by pod
@@ -1545,14 +1626,9 @@ kube_pod_container_status_restarts_total{namespace="three-tier"}
 
 ### 13.1 Access Grafana
 
-**Via NodePort (Recommended for Cost Efficiency):**
-```bash
-# Get any node external IP
-kubectl get nodes -o wide
-
-# Grafana is exposed on NodePort 32000
-# Access: http://<NODE-EXTERNAL-IP>:32000
-```
+**Via HTTPS (Shared ALB - Recommended):**
+- URL: `https://monitoring.tarang.cloud/grafana`
+- Features: Secure HTTPS access, persistent storage, subpath routing
 
 **Get Admin Password:**
 ```bash
@@ -1561,9 +1637,9 @@ kubectl get secret -n monitoring prometheus-grafana -o jsonpath="{.data.admin-pa
 
 **Login Credentials:**
 - Username: `admin`
-- Password: (from command above)
+- Password: `admin` (configured in `prometheus-values.yaml`, change in production!)
 
-**Or via Port Forward (for local access):**
+**Or via Port Forward (for local testing):**
 ```bash
 kubectl port-forward -n monitoring deploy/prometheus-grafana 3000:3000
 ```
@@ -1571,17 +1647,40 @@ Access: `http://localhost:3000`
 
 ### 13.2 Configure Prometheus Data Source
 
-Before importing dashboards, add Prometheus as a data source:
+Grafana needs to be configured to query Prometheus via the internal Kubernetes service.
 
-1. **Login to Grafana** using the URL above
-2. **Go to Configuration** (gear icon) → **Data Sources**
-3. **Click "Add data source"**
-4. **Select "Prometheus"**
-5. **Configure:**
-   - Name: `Prometheus`
-  - URL: `http://prometheus-operated:9090`
-   - Access: `Server (default)`
-6. **Click "Save & Test"** - should show "Data source is working"
+**Step-by-step configuration:**
+
+1. **Login to Grafana** at `https://monitoring.tarang.cloud/grafana`
+2. **Navigate to:** Configuration (⚙️) → Data Sources
+3. **Click:** "Add data source"
+4. **Select:** "Prometheus"
+5. **Configure the following settings:**
+   - **Name:** `Prometheus`
+   - **URL:** `http://prometheus-kube-prometheus-prometheus:9090/prometheus`
+     - ⚠️ **Important:** Use the internal ClusterIP service URL, not the external Ingress URL
+     - The `/prometheus` suffix is required because Prometheus is configured with `routePrefix: /prometheus`
+   - **Access:** `Server (default)` - Grafana pod accesses Prometheus directly within the cluster
+   - **Auth:** No authentication required (internal cluster communication)
+   - **TLS Settings:** Skip TLS certificate verification (not needed for ClusterIP)
+6. **Click:** "Save & Test"
+7. **Verify:** Should show "✅ Data source is working"
+
+**Troubleshooting datasource connection:**
+```bash
+# Test connectivity from Grafana pod to Prometheus service
+kubectl -n monitoring exec -it deploy/prometheus-grafana -- curl -s http://prometheus-kube-prometheus-prometheus:9090/prometheus/api/v1/status/buildinfo
+
+# Expected output: JSON with Prometheus version info
+# If 404: Check routePrefix in prometheus-values.yaml
+# If connection refused: Verify service name and port
+```
+
+**Why use internal service URL:**
+- ✅ Direct pod-to-pod communication (faster, no external routing)
+- ✅ No authentication required (both pods in same namespace)
+- ✅ No TLS overhead (internal cluster traffic)
+- ✅ Works even if Ingress/ALB has issues
 
 ### 13.3 Import Kubernetes Dashboards
 
