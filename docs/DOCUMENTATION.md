@@ -808,10 +808,10 @@ This project follows a **microservices architecture** with three separate reposi
 │  └────────────────────────────────────────────────────────────────┘     │
 │                                                                         │
 │  Applications:                                                          │
-│  ├─ frontend-app   (three-tier-fe repo)                                 │
-│  ├─ backend-app    (three-tier-be repo)                                 │
-│  ├─ database-app   (infrastructure repo)                                │
-│  └─ ingress-app    (infrastructure repo)                                │
+│  ├─ frontend   (three-tier-fe repo)                                     │
+│  ├─ backend    (three-tier-be repo)                                     │
+│  ├─ database   (infrastructure repo)                                    │
+│  └─ ingress    (infrastructure repo)                                    │
 └─────────────────────────────────────────────────────────────────────────┘
 
 **Security Features:**

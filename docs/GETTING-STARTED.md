@@ -871,7 +871,7 @@ First, remove all applications and services from the EKS cluster. This ensures A
 aws eks update-kubeconfig --name three-tier-eks-cluster --region us-east-1
 
 # Delete ArgoCD applications (this removes all managed resources)
-kubectl delete application -n argocd backend-app frontend-app database-app ingress-app --wait=true
+kubectl delete application -n argocd backend frontend database ingress --wait=true
 
 # Delete Ingress resources (removes ALB)
 kubectl delete ingress -n three-tier mainlb --wait=true
@@ -1232,7 +1232,7 @@ aws ec2 describe-instances --region us-east-1 --filters "Name=instance-state-nam
 Use this checklist to ensure complete cleanup:
 
 #### Kubernetes Resources (kubectl/Helm)
-- [ ] **Step 1:** Deleted all ArgoCD applications (backend-app, frontend-app, database-app, ingress-app)
+- [ ] **Step 1:** Deleted all ArgoCD applications (backend, frontend, database, ingress)
 - [ ] **Step 1:** Deleted Ingress resources (mainlb, monitoring-ingress)
 - [ ] **Step 1:** Uninstalled Prometheus and Grafana Helm charts
 - [ ] **Step 1:** Deleted namespaces (argocd, three-tier, monitoring)
@@ -1279,7 +1279,7 @@ set -e  # Exit on error
 
 echo "=== STEP 1: Deleting Kubernetes Resources ==="
 aws eks update-kubeconfig --name three-tier-eks-cluster --region us-east-1
-kubectl delete application -n argocd backend-app frontend-app database-app ingress-app --wait=true || true
+kubectl delete application -n argocd backend frontend database ingress --wait=true || true
 kubectl delete ingress -n three-tier mainlb --wait=true || true
 kubectl delete ingress -n monitoring monitoring-ingress --wait=true || true
 helm uninstall prometheus -n monitoring || true
