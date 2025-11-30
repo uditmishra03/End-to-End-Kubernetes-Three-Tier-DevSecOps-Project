@@ -520,6 +520,38 @@ aws ec2 describe-vpcs --filters "Name=vpc-id,Values=vpc-0c536758a10e29c06"  # Sh
 
 **Total time: 2+ hours, 9 manual intervention steps, multiple failures and retries**
 
+#### Additional Lesson: ECR Repository Cleanup (November 30, 2025)
+
+During Jenkins Server Terraform cleanup, we encountered another issue:
+
+```
+Error: ECR Repository (backend) not empty, consider using force_delete
+Error: ECR Repository (frontend) not empty, consider using force_delete
+```
+
+**Problem**: ECR repositories couldn't be deleted because they contained Docker images from our CI/CD pipeline builds.
+
+**Solution**: Added `force_delete = true` to ECR repository resources:
+
+```terraform
+resource "aws_ecr_repository" "backend" {
+  name                 = "backend"
+  image_tag_mutability = "MUTABLE"
+  force_delete         = true  # ← This allows deletion even with images
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+  # ... rest of config
+}
+```
+
+**Why This Matters**: 
+- ECR repositories accumulate images over time from CI/CD builds
+- Without `force_delete = true`, you must manually delete all images before destroying the repository
+- With this flag, Terraform handles cleanup automatically
+- **Recommendation**: Always set `force_delete = true` for ECR repositories in non-production environments
+
 ---
 
 ### With Terraform: The Clean Solution
