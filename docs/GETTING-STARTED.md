@@ -151,6 +151,70 @@ For each repository (main, backend, frontend):
 
 ### **Step 4: Deploy EKS Cluster**
 
+> **📌 IMPORTANT NOTE - Two Deployment Options Available:**
+> 
+> **We now provide TWO ways to deploy the EKS cluster:**
+> 
+> 1. **✅ RECOMMENDED: Terraform (Infrastructure as Code)** - Fully automated, easy cleanup, production-ready
+>    - 📖 **See:** [`EKS-TF/README.md`](../EKS-TF/README.md) for complete Terraform-based deployment
+>    - ✅ **Benefits:** Single-command deployment & destruction, state management, reproducible infrastructure
+>    - 🧹 **Cleanup:** `terraform destroy` removes everything cleanly (no manual steps!)
+> 
+> 2. **⚠️ eksctl (Legacy Method)** - Manual setup, complex cleanup (documented below)
+>    - 📖 **See:** Instructions below for eksctl-based deployment
+>    - ⚠️ **Note:** Cleanup can be challenging and requires multiple manual steps
+> 
+> **💡 Why Terraform?**
+> - Simple deployment: `terraform apply`
+> - Simple cleanup: `terraform destroy` 
+> - Complete state tracking in S3
+> - No orphaned resources
+> - Production best practices built-in
+> - AWS Load Balancer Controller included automatically
+> 
+> **For new deployments, we strongly recommend using the Terraform approach documented in [`EKS-TF/README.md`](../EKS-TF/README.md).**
+
+---
+
+#### **Option 1: Deploy EKS Cluster with Terraform (Recommended)**
+
+For the **recommended Terraform-based deployment**, follow the complete guide here:
+
+📖 **[EKS-TF/README.md](../EKS-TF/README.md)** - Complete Terraform deployment guide
+
+**Quick summary:**
+```bash
+cd EKS-TF
+
+# Initialize and deploy
+terraform init
+terraform apply -var-file=variables.tfvars
+
+# Configure kubectl
+aws eks update-kubeconfig --region us-east-1 --name Three-Tier-K8s-EKS-Cluster
+
+# Verify
+kubectl get nodes
+```
+
+**What you get:**
+- ✅ Complete EKS cluster (Kubernetes 1.32)
+- ✅ VPC with multi-AZ subnets and NAT gateways
+- ✅ Managed node group (2-3 t2.medium instances)
+- ✅ AWS Load Balancer Controller (auto-installed)
+- ✅ EBS CSI Driver (auto-installed)
+- ✅ All IAM roles with IRSA configured
+
+**Time:** ~20-25 minutes
+
+**After deployment, skip to Step 6 (Deploy MongoDB Database)** - The Terraform approach includes the Load Balancer Controller setup automatically.
+
+---
+
+#### **Option 2: Deploy EKS Cluster with eksctl (Legacy)**
+
+> ⚠️ **Warning:** This method requires complex manual cleanup. Use Terraform instead for production deployments.
+
 Create the Kubernetes cluster using eksctl.
 
 ```bash
@@ -161,7 +225,7 @@ eksctl create cluster -f eks-cluster.yaml
 ```
 
 **Cluster Configuration:**
-- Name: three-tier-eks-cluster
+- Name: Three-Tier-K8s-EKS-Cluster
 - Region: us-east-1
 - Node group: 2-3 t3.medium instances
 - Version: 1.27+
@@ -178,9 +242,15 @@ kubectl get nodes
 # Expected output: 2-3 nodes in Ready state
 ```
 
+**⚠️ Note on Cleanup:** If using eksctl, cleanup will require multiple manual steps. See the cleanup section at the end of this document for detailed instructions.
+
 ---
 
 ### **Step 5: Set Up AWS Load Balancer Controller**
+
+> **📌 NOTE:** If you deployed using **Terraform (Option 1)**, the AWS Load Balancer Controller is **already installed automatically**. **Skip this step** and proceed directly to Step 6.
+>
+> This step is **only required** if you used **eksctl (Option 2)** to deploy the cluster.
 
 Install the AWS Load Balancer Controller for Ingress support.
 
@@ -199,7 +269,7 @@ aws iam create-policy \
 
 # Create service account
 eksctl create iamserviceaccount \
-    --cluster=three-tier-eks-cluster \
+    --cluster=Three-Tier-K8s-EKS-Cluster \
     --namespace=kube-system \
     --name=aws-load-balancer-controller \
     --attach-policy-arn=arn:aws:iam::<ACCOUNT_ID>:policy/AWSLoadBalancerControllerIAMPolicy \
@@ -804,7 +874,7 @@ kubectl scale deployment frontend -n three-tier --replicas=3
 ### EKS Issues
 - **Nodes not joining cluster:** Check subnet configuration and security groups
 - **Pods stuck in Pending:** Check node capacity and resource requests
-- **Cannot access cluster:** Run `aws eks update-kubeconfig --name three-tier-eks-cluster --region us-east-1`
+- **Cannot access cluster:** Run `aws eks update-kubeconfig --name Three-Tier-K8s-EKS-Cluster --region us-east-1`
 
 ### ArgoCD Issues
 - **Application OutOfSync:** Click "Sync" in ArgoCD UI
@@ -868,41 +938,88 @@ First, remove all applications and services from the EKS cluster. This ensures A
 
 ```bash
 # Configure kubectl for your EKS cluster (if not already configured)
-aws eks update-kubeconfig --name three-tier-eks-cluster --region us-east-1
+aws eks update-kubeconfig --name Three-Tier-K8s-EKS-Cluster --region us-east-1
 
-# Delete ArgoCD applications (this removes all managed resources)
-kubectl delete application -n argocd backend frontend database ingress --wait=true
+# STEP 1a: Delete application deployments and services FIRST (deregisters targets from ALB)
+kubectl delete deployment -n three-tier backend frontend --wait=true
+kubectl delete service -n three-tier backend-svc frontend-svc --wait=true
+kubectl delete statefulset -n three-tier mongodb --wait=true
+kubectl delete service -n three-tier mongodb-svc --wait=true
 
-# Delete Ingress resources (removes ALB)
+# Wait 30 seconds for target deregistration
+echo "Waiting for ALB target deregistration..."
+sleep 30
+
+# STEP 1b: Now delete Ingress resources (this will delete the ALB)
 kubectl delete ingress -n three-tier mainlb --wait=true
 kubectl delete ingress -n monitoring monitoring-ingress --wait=true
 
-# Delete monitoring stack
-helm uninstall prometheus -n monitoring
-helm uninstall grafana -n monitoring
+# Wait for ALB deletion to complete
+echo "Waiting for ALB deletion..."
+sleep 60
 
-# Delete ArgoCD
+# STEP 1c: Delete monitoring stack
+helm uninstall prometheus -n monitoring || true
+helm uninstall grafana -n monitoring || true
+
+# STEP 1d: Delete ArgoCD applications and namespace
+kubectl delete application -n argocd backend frontend database ingress --wait=true || true
 kubectl delete namespace argocd --wait=true
 
-# Delete application namespace
+# STEP 1e: Delete application namespaces
 kubectl delete namespace three-tier --wait=true
-
-# Delete monitoring namespace
 kubectl delete namespace monitoring --wait=true
 
-# Verify ALB deletion (may take 2-5 minutes)
+# Verify ALB deletion (should be deleted by now)
 aws elbv2 describe-load-balancers --region us-east-1 | grep k8s-sharedalb
-# Should return no results once fully deleted
+# Should return no results
 ```
 
-**Wait Time:** 5-10 minutes for all resources to be deleted properly
+**Wait Time:** 3-5 minutes for all resources to be deleted properly
+
+**Why this order matters:**
+1. **Delete deployments/services first** → Deregisters pods from ALB target groups
+2. **Wait 30 seconds** → Allows target deregistration to complete
+3. **Delete ingress** → ALB can now be deleted cleanly (no active targets)
+4. **Delete namespaces last** → Ensures all resources within are already gone
 
 **Troubleshooting:**
-- If namespace stuck in `Terminating` state:
+- **If ingress deletion is stuck (waiting indefinitely):**
+  ```bash
+  # The ALB Ingress Controller adds finalizers that prevent deletion until ALB cleanup completes
+  # If controller is unavailable (e.g., cluster being deleted), manually remove finalizers
+  
+  # Force delete ingress
+  kubectl delete ingress -n three-tier mainlb --grace-period=0 --force
+  
+  # If still stuck, remove finalizers to allow deletion
+  kubectl patch ingress mainlb -n three-tier -p '{"metadata":{"finalizers":[]}}' --type=merge
+  
+  # Verify deletion
+  kubectl get ingress -A
+  ```
+
+- **If ALB still not deleting:** Check target groups manually
+  ```bash
+  # List target groups
+  aws elbv2 describe-target-groups --region us-east-1 | grep k8s-three
+  
+  # If targets still registered, force delete deployments
+  kubectl delete deployment -n three-tier --all --grace-period=0 --force
+  kubectl delete pods -n three-tier --all --grace-period=0 --force
+  
+  # Wait 60 seconds, then retry ingress deletion
+  kubectl delete ingress -n three-tier mainlb --wait=true
+  ```
+
+- **If namespace stuck in `Terminating` state:**
   ```bash
   kubectl get namespace <namespace> -o json | jq '.spec.finalizers = []' | kubectl replace --raw "/api/v1/namespaces/<namespace>/finalize" -f -
   ```
-- If ALB not deleted after 10 minutes, manually delete from AWS Console
+
+- **If ALB still exists after 10 minutes:** Manually delete from AWS Console
+  - Go to EC2 → Load Balancers
+  - Select k8s-* ALBs and delete
 
 ---
 
@@ -915,7 +1032,7 @@ Delete the EKS cluster and all associated node groups.
 eksctl get cluster --region us-east-1
 
 # Delete the cluster (this also deletes all node groups)
-eksctl delete cluster --name three-tier-eks-cluster --region us-east-1 --wait
+eksctl delete cluster --name Three-Tier-K8s-EKS-Cluster --region us-east-1 --wait
 
 # Alternative: If you have a cluster config file
 # eksctl delete cluster -f eks-cluster.yaml --wait
@@ -935,21 +1052,69 @@ eksctl delete cluster --name three-tier-eks-cluster --region us-east-1 --wait
 ```bash
 # Check if cluster is deleted
 aws eks list-clusters --region us-east-1
-# Should NOT show three-tier-eks-cluster
+# Should NOT show Three-Tier-K8s-EKS-Cluster
 
 # Check CloudFormation stacks
 aws cloudformation list-stacks --region us-east-1 --stack-status-filter DELETE_COMPLETE
-# Should show eksctl-three-tier-eks-cluster-* stacks as DELETE_COMPLETE
+# Should show eksctl-Three-Tier-K8s-EKS-Cluster-* stacks as DELETE_COMPLETE
 ```
 
 **Troubleshooting:**
-- If deletion fails with VPC dependency error:
+
+- **If deletion fails with "Cannot delete entity, must remove roles from instance profile first":**
+  
+  This error occurs when the nodegroup's IAM role has an instance profile that must be removed manually.
+  
+  ```bash
+  # 1. Get the actual IAM role name from the failed stack
+  aws cloudformation describe-stack-resources \
+    --stack-name eksctl-Three-Tier-K8s-EKS-Cluster-nodegroup-ng-960b346f \
+    --region us-east-1 \
+    --query 'StackResources[?LogicalResourceId==`NodeInstanceRole`].[PhysicalResourceId]' \
+    --output text
+  
+  # Output example: eksctl-Three-Tier-K8s-EKS-Cluster--NodeInstanceRole-1PLh0fSgNKtC
+  
+  # 2. List instance profiles attached to the role
+  aws iam list-instance-profiles-for-role --role-name <ROLE_NAME_FROM_STEP_1>
+  
+  # 3. Remove the role from the instance profile (use names from step 2)
+  aws iam remove-role-from-instance-profile \
+    --instance-profile-name <INSTANCE_PROFILE_NAME> \
+    --role-name <ROLE_NAME>
+  
+  # 4. Delete the instance profile
+  aws iam delete-instance-profile --instance-profile-name <INSTANCE_PROFILE_NAME>
+  
+  # 5. Check for attached policies and delete the role
+  aws iam list-attached-role-policies --role-name <ROLE_NAME>
+  # If policies exist: aws iam detach-role-policy --role-name <ROLE_NAME> --policy-arn <POLICY_ARN>
+  
+  aws iam delete-role --role-name <ROLE_NAME>
+  
+  # 6. Delete the failed CloudFormation stack
+  aws cloudformation delete-stack \
+    --stack-name eksctl-Three-Tier-K8s-EKS-Cluster-nodegroup-ng-960b346f \
+    --region us-east-1
+  
+  # 7. Verify stack is deleted
+  aws cloudformation describe-stacks \
+    --stack-name eksctl-Three-Tier-K8s-EKS-Cluster-nodegroup-ng-960b346f \
+    --region us-east-1 \
+    --query 'Stacks[0].StackStatus'
+  # Should return: "Stack does not exist" error
+  
+  # 8. Wait for cluster deletion to complete (it continues in background)
+  aws eks describe-cluster --name Three-Tier-K8s-EKS-Cluster --region us-east-1 2>&1 | grep -i "not found" && echo "✅ Cluster deleted" || echo "⏳ Still deleting..."
+  ```
+
+- **If deletion fails with VPC dependency error:**
   ```bash
   # Manually delete ENIs (Elastic Network Interfaces)
   aws ec2 describe-network-interfaces --region us-east-1 --filters "Name=vpc-id,Values=<VPC-ID>" --query 'NetworkInterfaces[*].NetworkInterfaceId' --output text | xargs -n 1 aws ec2 delete-network-interface --region us-east-1 --network-interface-id
   
   # Then retry cluster deletion
-  eksctl delete cluster --name three-tier-eks-cluster --region us-east-1 --wait
+  eksctl delete cluster --name Three-Tier-K8s-EKS-Cluster --region us-east-1 --wait
   ```
 
 ---
@@ -1154,6 +1319,140 @@ aws ec2 describe-vpcs --region us-east-1 --query 'Vpcs[*].[VpcId,Tags[?Key==`Nam
 
 ---
 
+#### **Step 5: Clean Up IAM Resources**
+
+Delete manually created IAM users, roles, and policies that were created for this project.
+
+**IAM Resources to Clean Up:**
+1. IAM Users: `terraform-user`, `eks-admin`
+2. IAM Policy: `AWSLoadBalancerControllerIAMPolicy`
+3. Any remaining eksctl-created IAM roles
+
+**Manual Cleanup Commands:**
+
+```bash
+# 1. Delete IAM Users (if created manually)
+# List IAM users
+aws iam list-users --query 'Users[?contains(UserName, `terraform`) || contains(UserName, `eks-admin`)].UserName' --output table
+
+# Delete access keys for each user
+aws iam list-access-keys --user-name terraform-user --query 'AccessKeyMetadata[*].AccessKeyId' --output text | xargs -I {} aws iam delete-access-key --user-name terraform-user --access-key-id {}
+aws iam list-access-keys --user-name eks-admin --query 'AccessKeyMetadata[*].AccessKeyId' --output text | xargs -I {} aws iam delete-access-key --user-name eks-admin --access-key-id {}
+
+# Detach policies from users
+aws iam list-attached-user-policies --user-name terraform-user --query 'AttachedPolicies[*].PolicyArn' --output text | xargs -I {} aws iam detach-user-policy --user-name terraform-user --policy-arn {}
+aws iam list-attached-user-policies --user-name eks-admin --query 'AttachedPolicies[*].PolicyArn' --output text | xargs -I {} aws iam detach-user-policy --user-name eks-admin --policy-arn {}
+
+# Delete users
+aws iam delete-user --user-name terraform-user
+aws iam delete-user --user-name eks-admin
+
+# 2. Delete ALB Controller IAM Policy
+aws iam delete-policy --policy-arn arn:aws:iam::<ACCOUNT_ID>:policy/AWSLoadBalancerControllerIAMPolicy
+
+# 3. Check for remaining eksctl IAM roles
+aws iam list-roles --query 'Roles[?contains(RoleName, `eksctl`) || contains(RoleName, `Three-Tier-K8s-EKS`)].RoleName' --output table
+
+# If any eksctl roles remain, delete them:
+# aws iam delete-role --role-name <ROLE_NAME>
+```
+
+**Automated IAM Cleanup Script:**
+
+Create and run this script to automate IAM cleanup:
+
+```bash
+#!/bin/bash
+# File: cleanup-iam-resources.sh
+# Cleanup IAM resources created for the Three-Tier DevSecOps project
+
+set -e
+
+echo "=== IAM Resources Cleanup Script ==="
+echo ""
+
+# Get AWS Account ID
+ACCOUNT_ID=$(aws sts get-caller-identity --query 'Account' --output text)
+echo "AWS Account ID: $ACCOUNT_ID"
+echo ""
+
+# Function to delete IAM user
+delete_iam_user() {
+    local USER_NAME=$1
+    echo "Checking if user '$USER_NAME' exists..."
+    
+    if aws iam get-user --user-name "$USER_NAME" 2>/dev/null; then
+        echo "Deleting access keys for $USER_NAME..."
+        aws iam list-access-keys --user-name "$USER_NAME" --query 'AccessKeyMetadata[*].AccessKeyId' --output text | \
+            xargs -I {} aws iam delete-access-key --user-name "$USER_NAME" --access-key-id {} 2>/dev/null || true
+        
+        echo "Detaching policies from $USER_NAME..."
+        aws iam list-attached-user-policies --user-name "$USER_NAME" --query 'AttachedPolicies[*].PolicyArn' --output text | \
+            xargs -I {} aws iam detach-user-policy --user-name "$USER_NAME" --policy-arn {} 2>/dev/null || true
+        
+        echo "Deleting inline policies from $USER_NAME..."
+        aws iam list-user-policies --user-name "$USER_NAME" --query 'PolicyNames' --output text | \
+            xargs -I {} aws iam delete-user-policy --user-name "$USER_NAME" --policy-name {} 2>/dev/null || true
+        
+        echo "Deleting user $USER_NAME..."
+        aws iam delete-user --user-name "$USER_NAME" 2>/dev/null || true
+        echo "✅ User $USER_NAME deleted"
+    else
+        echo "⏭️  User $USER_NAME does not exist"
+    fi
+    echo ""
+}
+
+# Delete IAM Users
+echo "=== Step 1: Deleting IAM Users ==="
+delete_iam_user "terraform-user"
+delete_iam_user "eks-admin"
+
+# Delete ALB Controller Policy
+echo "=== Step 2: Deleting AWSLoadBalancerControllerIAMPolicy ==="
+POLICY_ARN="arn:aws:iam::${ACCOUNT_ID}:policy/AWSLoadBalancerControllerIAMPolicy"
+if aws iam get-policy --policy-arn "$POLICY_ARN" 2>/dev/null; then
+    echo "Deleting policy $POLICY_ARN..."
+    aws iam delete-policy --policy-arn "$POLICY_ARN" 2>/dev/null || true
+    echo "✅ Policy deleted"
+else
+    echo "⏭️  Policy does not exist"
+fi
+echo ""
+
+# Check for remaining eksctl roles
+echo "=== Step 3: Checking for remaining eksctl/EKS IAM roles ==="
+REMAINING_ROLES=$(aws iam list-roles --query 'Roles[?contains(RoleName, `eksctl`) || contains(RoleName, `Three-Tier-K8s-EKS`)].RoleName' --output text)
+
+if [ -n "$REMAINING_ROLES" ]; then
+    echo "⚠️  Found remaining eksctl/EKS roles:"
+    echo "$REMAINING_ROLES"
+    echo ""
+    echo "These roles should have been deleted by eksctl. If they remain, delete manually:"
+    for role in $REMAINING_ROLES; do
+        echo "  aws iam delete-role --role-name $role"
+    done
+else
+    echo "✅ No remaining eksctl/EKS roles found"
+fi
+echo ""
+
+echo "=== IAM Cleanup Complete ==="
+echo ""
+echo "Verification:"
+aws iam list-users --query 'Users[?contains(UserName, `terraform`) || contains(UserName, `eks`)].UserName' --output table
+echo ""
+echo "If any resources remain, delete them manually using the AWS Console."
+```
+
+**Run the script:**
+```bash
+chmod +x cleanup-iam-resources.sh
+./cleanup-iam-resources.sh
+```
+
+---
+
 #### **Step 6: Delete Orphaned Resources (If Any)**
 
 If verification shows any remaining resources, manually delete them.
@@ -1232,15 +1531,18 @@ aws ec2 describe-instances --region us-east-1 --filters "Name=instance-state-nam
 Use this checklist to ensure complete cleanup:
 
 #### Kubernetes Resources (kubectl/Helm)
-- [ ] **Step 1:** Deleted all ArgoCD applications (backend, frontend, database, ingress)
-- [ ] **Step 1:** Deleted Ingress resources (mainlb, monitoring-ingress)
-- [ ] **Step 1:** Uninstalled Prometheus and Grafana Helm charts
-- [ ] **Step 1:** Deleted namespaces (argocd, three-tier, monitoring)
-- [ ] **Step 1:** Verified ALB deletion (no k8s-sharedalb-* ALBs exist)
+- [ ] **Step 1a:** Deleted backend/frontend deployments and services (deregister from ALB)
+- [ ] **Step 1a:** Deleted MongoDB StatefulSet and service
+- [ ] **Step 1a:** Waited 30 seconds for target deregistration
+- [ ] **Step 1b:** Deleted Ingress resources (mainlb, monitoring-ingress)
+- [ ] **Step 1c:** Uninstalled Prometheus and Grafana Helm charts
+- [ ] **Step 1d:** Deleted ArgoCD applications and namespace
+- [ ] **Step 1e:** Deleted namespaces (three-tier, monitoring)
+- [ ] **Step 1:** Verified ALB deletion (no k8s-* ALBs exist)
 
 #### EKS Cluster (eksctl)
-- [ ] **Step 2:** Ran `eksctl delete cluster --name three-tier-eks-cluster`
-- [ ] **Step 2:** Verified cluster deletion (no three-tier-eks-cluster in `aws eks list-clusters`)
+- [ ] **Step 2:** Ran `eksctl delete cluster --name Three-Tier-K8s-EKS-Cluster`
+- [ ] **Step 2:** Verified cluster deletion (no Three-Tier-K8s-EKS-Cluster in `aws eks list-clusters`)
 - [ ] **Step 2:** Verified CloudFormation stacks deleted (eksctl-* stacks show DELETE_COMPLETE)
 
 #### Terraform Infrastructure (PRIMARY METHOD)
@@ -1254,12 +1556,20 @@ Use this checklist to ensure complete cleanup:
 - [ ] **Step 4:** Verified ECR repositories deleted (if managed by Terraform)
 - [ ] **Step 4:** Verified `terraform state list` returns empty
 
+#### IAM Resources Cleanup
+- [ ] **Step 5:** Deleted IAM user: `terraform-user`
+- [ ] **Step 5:** Deleted IAM user: `eks-admin`
+- [ ] **Step 5:** Deleted IAM policy: `AWSLoadBalancerControllerIAMPolicy`
+- [ ] **Step 5:** Verified no remaining eksctl-* or Three-Tier-K8s-EKS-* IAM roles
+- [ ] **Step 5:** Ran IAM cleanup script (optional but recommended)
+
 #### Final Verification
-- [ ] **Step 5:** No orphaned EC2 instances running
-- [ ] **Step 5:** No orphaned EBS volumes (available state)
-- [ ] **Step 5:** No orphaned Application Load Balancers
-- [ ] **Step 5:** No orphaned Elastic IPs
-- [ ] **Step 5:** No eksctl-* or Jenkins-related CloudFormation stacks active
+- [ ] **Step 6:** No orphaned EC2 instances running
+- [ ] **Step 6:** No orphaned EBS volumes (available state)
+- [ ] **Step 6:** No orphaned Application Load Balancers
+- [ ] **Step 6:** No orphaned Elastic IPs
+- [ ] **Step 6:** No eksctl-* or Jenkins-related CloudFormation stacks active
+- [ ] **Step 6:** No project-related IAM roles remaining
 - [ ] **Step 5:** No project-related IAM roles remaining
 - [ ] **Step 7:** AWS Cost Explorer shows $0/day for EC2, EKS, ALB, EBS, ECR
 - [ ] **DNS:** Updated/deleted DNS records on Hostinger (todo.tarang.cloud, monitoring.tarang.cloud)
@@ -1278,21 +1588,50 @@ For experienced users, here's the complete teardown in one script:
 set -e  # Exit on error
 
 echo "=== STEP 1: Deleting Kubernetes Resources ==="
-aws eks update-kubeconfig --name three-tier-eks-cluster --region us-east-1
-kubectl delete application -n argocd backend frontend database ingress --wait=true || true
+aws eks update-kubeconfig --name Three-Tier-K8s-EKS-Cluster --region us-east-1
+
+# Delete deployments and services first (deregister from ALB)
+echo "Deleting application deployments and services..."
+kubectl delete deployment -n three-tier backend frontend --wait=true || true
+kubectl delete service -n three-tier backend-svc frontend-svc --wait=true || true
+kubectl delete statefulset -n three-tier mongodb --wait=true || true
+kubectl delete service -n three-tier mongodb-svc --wait=true || true
+
+# Wait for target deregistration
+echo "Waiting for ALB target deregistration (30 seconds)..."
+sleep 30
+
+# Now delete ingress (ALB)
+echo "Deleting ingress resources (ALB)..."
 kubectl delete ingress -n three-tier mainlb --wait=true || true
 kubectl delete ingress -n monitoring monitoring-ingress --wait=true || true
+
+# Wait for ALB deletion
+echo "Waiting for ALB deletion (60 seconds)..."
+sleep 60
+
+# Delete monitoring stack
+echo "Deleting monitoring stack..."
 helm uninstall prometheus -n monitoring || true
 helm uninstall grafana -n monitoring || true
+
+# Delete ArgoCD
+echo "Deleting ArgoCD..."
+kubectl delete application -n argocd backend frontend database ingress --wait=true || true
 kubectl delete namespace argocd --wait=true || true
+
+# Delete application namespaces
+echo "Deleting application namespaces..."
 kubectl delete namespace three-tier --wait=true || true
 kubectl delete namespace monitoring --wait=true || true
+
+echo "Kubernetes resources cleanup complete!"
 
 echo "Waiting 5 minutes for ALB deletion..."
 sleep 300
 
 echo "=== STEP 2: Deleting EKS Cluster ==="
-eksctl delete cluster --name three-tier-eks-cluster --region us-east-1 --wait
+eksctl delete cluster --name Three-Tier-K8s-EKS-Cluster --region us-east-1 --wait
 
 echo "=== STEP 3: Destroying Terraform Infrastructure ==="
 cd Jenkins-Server-TF

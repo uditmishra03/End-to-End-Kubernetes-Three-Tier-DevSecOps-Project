@@ -25,7 +25,7 @@ This document consolidates all planned enhancements, improvements, and future sc
 | User Session Management & Data Isolation                        | 🚀 Planned                      | Medium        |
 | AWS Secrets Manager & External Secrets Operator                 | 🚀 Planned                      | Medium        |
 | Automation Scripts Testing & Enhancement                       | 🔄 Testing & Enhancement Phase  | Low           |
-| Complete Infrastructure as Code (IaC)                          | 🚀 Planned                      | Medium        |
+| Complete Infrastructure as Code (IaC)                          | ✅ Completed (Nov 30, 2025)     | High          |
 | Complete Documentation & Portfolio Readiness                   | ✅ Completed (Nov 26, 2025)     | High          |
 | Add Demo Videos and Screenshots to Documentation               | ✅ Completed                    | High          |
 | IAM Roles for Service Accounts (IRSA)                          | 🚀 Planned                      | Medium        |
@@ -735,63 +735,158 @@ Implemented automated cleanup of untagged Docker images (cache layers) to reduce
 ------
 
 ### 5. 📋 Complete Infrastructure as Code (IaC) - One-Stop Deployment Solution
-**Status:** 🚀 Planned  
-**Priority:** Medium  
+**Status:** ✅ **COMPLETED** (November 30, 2025)  
+**Priority:** High  
 **Complexity:** High  
-**Timeline:** Q2 2026  
-**Estimated Time:** 12-16 hours
+**Completion Date:** November 30, 2025  
+**Total Time Invested:** 4+ hours
 
 **Description:**
-Create a comprehensive one-stop solution to deploy and bring up the entire infrastructure with a single command. Convert all manually created AWS resources to Terraform for fully automated, reproducible infrastructure.
+Complete Terraform-based infrastructure as code for the entire EKS cluster, eliminating the need for manual `eksctl` commands and enabling single-command deployment and destruction.
 
-**Goal:** Run one command → Entire infrastructure ready (EKS, Jenkins, networking, applications, monitoring)
+**Goal:** Run one command → Entire EKS infrastructure ready with proper state management
 
 **Vision:**
 ```bash
-# Single command to deploy everything
-./deploy-all.sh
-
-# Or with Terraform
+# Deploy complete EKS infrastructure
+cd EKS-TF
 terraform init
-terraform apply -auto-approve
+terraform apply -var-file=variables.tfvars -auto-approve
 
-# Result: Complete working DevSecOps environment in 30-45 minutes
+# Result: Complete EKS cluster with all add-ons in 20-25 minutes
+
+# Cleanup (the proper way!)
+terraform destroy -var-file=variables.tfvars -auto-approve
+
+# Result: Clean removal of all resources in 15-20 minutes
 ```
 
-**Current State:**
-- ✅ Jenkins EC2 with Terraform (partial)
-- ❌ EKS cluster - manually created
-- ❌ Node groups - manually created
-- ❌ ALB Ingress Controller - manually installed
-- ❌ ArgoCD - manually installed
+**Previous State (eksctl):**
+- ❌ EKS cluster - manually created with `eksctl create cluster -f eks-cluster.yaml`
+- ❌ Node groups - manually managed, difficult to recreate
+- ❌ OIDC provider - manual setup
+- ❌ ALB Ingress Controller - manual Helm installation with separate IAM setup
+- ❌ EBS CSI Driver - manual addon installation
+- ❌ Cleanup required multiple manual steps and often failed with orphaned resources
 
-**Files to Create:**
+**Current State (Terraform):**
+- ✅ **Complete EKS Terraform Module** in `EKS-TF/` directory
+- ✅ **VPC with Multi-AZ Setup:** 3 public + 3 private subnets, NAT gateways
+- ✅ **EKS Cluster:** Kubernetes 1.32 with managed control plane
+- ✅ **Managed Node Group:** t2.medium instances with auto-scaling (2-3 nodes)
+- ✅ **OIDC Provider:** Automatically configured for IRSA
+- ✅ **VPC CNI with IRSA:** Pod networking with proper IAM roles
+- ✅ **EBS CSI Driver with IRSA:** Persistent volume support
+- ✅ **AWS Load Balancer Controller:** Fully automated installation via Helm
+- ✅ **State Management:** S3 backend with DynamoDB locking
+- ✅ **Single Command Cleanup:** `terraform destroy` removes everything properly
+
+**Files Created:**
 ```
-terraform/
-├── eks.tf                    # EKS cluster, node groups
-├── jenkins.tf                # Jenkins EC2 (enhance existing)
-├── alb.tf                    # ALB Ingress Controller config
-├── iam.tf                    # IAM roles (IRSA)
-├── vpc.tf                    # VPC configuration (if recreating)
-├── route53.tf                # Domain and DNS records
-├── acm.tf                    # SSL certificates
-├── monitoring.tf             # Prometheus/Grafana
-└── variables.tf              # Centralized variables
+EKS-TF/
+├── provider.tf                           # AWS, Kubernetes, Helm providers
+├── variables.tf                          # All configurable variables
+├── variables.tfvars                      # Default values
+├── vpc.tf                                # VPC with public/private subnets
+├── eks.tf                                # EKS cluster + node groups + addons
+├── aws-load-balancer-controller.tf       # ALB controller with IRSA
+├── outputs.tf                            # Cluster info, endpoints, ARNs
+├── README.md                             # Complete usage documentation
+└── .gitignore                            # Terraform-specific ignores
 ```
+
+**Key Features:**
+
+1. **Official AWS Modules:**
+   - `terraform-aws-modules/vpc/aws` for networking
+   - `terraform-aws-modules/eks/aws` for cluster
+   - `terraform-aws-modules/iam/aws` for IRSA roles
+
+2. **Integrated Add-ons:**
+   - CoreDNS, kube-proxy, VPC CNI (with prefix delegation)
+   - EBS CSI Driver with service account
+   - AWS Load Balancer Controller via Helm
+
+3. **High Availability:**
+   - Multi-AZ deployment (3 availability zones)
+   - NAT Gateway per AZ for resilience
+   - Auto-scaling node groups
+
+4. **Security Best Practices:**
+   - IRSA for all service accounts (no static credentials)
+   - Private subnets for worker nodes
+   - Proper security group rules
+   - Encrypted EBS volumes
+
+5. **State Management:**
+   - Remote S3 backend (`eks-devsecops-bucket`)
+   - DynamoDB state locking (`Lock-Files` table)
+   - Version-controlled infrastructure
 
 **Benefits:**
-- ✅ One-command infrastructure recreation
-- ✅ Version-controlled infrastructure
-- ✅ Consistent environments (dev/staging/prod)
-- ✅ Faster disaster recovery
-- ✅ Documentation through code
-- ✅ Team collaboration on infrastructure changes
+- ✅ **Simple Cleanup:** `terraform destroy` removes ALL resources properly
+- ✅ **Reproducible:** Exact same cluster every time
+- ✅ **Version Controlled:** All infrastructure tracked in Git
+- ✅ **No Orphaned Resources:** Terraform handles dependencies correctly
+- ✅ **Team Collaboration:** Multiple engineers can work on infrastructure
+- ✅ **Disaster Recovery:** Recreate entire cluster in < 30 minutes
+- ✅ **Environment Parity:** Use same code for dev/staging/prod
 
-**Dependencies:** None
+**Why This Matters:**
 
-**Detailed Fix Documentation:** See [fixes/NODE-GROUP-RECREATION-GUIDE.md](./fixes/NODE-GROUP-RECREATION-GUIDE.md) for manual node group recreation procedures (until IaC is complete).
+The previous eksctl-based approach caused significant cleanup issues:
+- Manual IAM role deletion broke CloudFormation dependencies
+- VPC deletion failed due to orphaned ENIs and security groups
+- Nodegroup deletion timeout exceeded 20+ minutes
+- Required 8+ manual troubleshooting steps to fully clean up
 
-**Reference:** POST-SHUTDOWN-RECOVERY-CHECKLIST.md - Architecture Recommendation #1
+With Terraform:
+- Single `terraform destroy` command
+- Proper dependency ordering
+- Complete state tracking
+- Predictable cleanup in 15-20 minutes
+
+**Usage:**
+
+```bash
+# Initial deployment
+cd EKS-TF
+terraform init
+terraform plan -var-file=variables.tfvars
+terraform apply -var-file=variables.tfvars
+
+# Configure kubectl
+aws eks update-kubeconfig --region us-east-1 --name Three-Tier-K8s-EKS-Cluster
+
+# Verify
+kubectl get nodes
+
+# Cleanup (delete Kubernetes resources first!)
+kubectl delete namespace three-tier --wait=true
+terraform destroy -var-file=variables.tfvars
+```
+
+**Documentation:**
+- Complete README in `EKS-TF/README.md` with:
+  - Usage instructions
+  - Configuration options
+  - Troubleshooting guide
+  - Comparison with eksctl approach
+  - Best practices
+
+**Dependencies:** 
+- S3 bucket `eks-devsecops-bucket` (already exists)
+- DynamoDB table `Lock-Files` (already exists)
+
+**Reference:** 
+- POST-SHUTDOWN-RECOVERY-CHECKLIST.md - Architecture Recommendation #1
+- User feedback: "We are having so much trouble... going back and forth for deleting this EKS cluster"
+
+**Lessons Learned:**
+- Always use Infrastructure as Code (Terraform) for production environments
+- eksctl is good for quick testing but not for production infrastructure
+- Manual resource deletion breaks dependency chains
+- State management is critical for reliable infrastructure operations
 
 ---
 
