@@ -309,14 +309,14 @@ Developer → GitHub → Jenkins (Build/Scan/Push) → ECR → ArgoCD → EKS �
 
 ### Core Technologies
 
-| Category | Technologies |
-|----------|-------------|
-| **Cloud** | AWS (EKS, ECR, EC2, VPC, ALB) |
-| **IaC** | Terraform, AWS CLI, eksctl, Helm |
-| **CI/CD** | Jenkins, ArgoCD, SonarQube, Trivy, Docker |
-| **Application** | React 17, Node.js/Express 4, MongoDB 4.4 |
-| **Monitoring** | Prometheus, Grafana |
-| **Container Orchestration** | Kubernetes 1.28+ |
+| Category                    | Technologies                              |
+| --------------------------- | ----------------------------------------- |
+| **Cloud**                   | AWS (EKS, ECR, EC2, VPC, ALB)             |
+| **IaC**                     | Terraform, AWS CLI, eksctl, Helm          |
+| **CI/CD**                   | Jenkins, ArgoCD, SonarQube, Trivy, Docker |
+| **Application**             | React 17, Node.js/Express 4, MongoDB 4.4  |
+| **Monitoring**              | Prometheus, Grafana                       |
+| **Container Orchestration** | Kubernetes 1.28+                          |
 
 ---
 
@@ -544,14 +544,14 @@ Access: `http://<EC2-IP>:9000` (admin/admin, change password)
 
 Add following credentials:
 
-| ID | Type | Description |
-|----|------|-------------|
-| `ACCOUNT_ID` | Secret text | AWS Account ID |
-| `ECR_REPO01` | Secret text | `frontend` |
-| `ECR_REPO02` | Secret text | `backend` |
-| `GITHUB` | Username/Password | GitHub credentials |
-| `github` | Secret text | GitHub Personal Access Token |
-| `sonar-token` | Secret text | SonarQube token |
+| ID            | Type              | Description                  |
+| ------------- | ----------------- | ---------------------------- |
+| `ACCOUNT_ID`  | Secret text       | AWS Account ID               |
+| `ECR_REPO01`  | Secret text       | `frontend`                   |
+| `ECR_REPO02`  | Secret text       | `backend`                    |
+| `GITHUB`      | Username/Password | GitHub credentials           |
+| `github`      | Secret text       | GitHub Personal Access Token |
+| `sonar-token` | Secret text       | SonarQube token              |
 
 **[PLACEHOLDER: Jenkins Credentials Screenshot]**
 
@@ -882,11 +882,11 @@ This project follows a **microservices architecture** with three separate reposi
 
 **Architecture Layers:**
 
-| Layer | Technology | Port | Repository | Purpose |
-|-------|-----------|------|------------|---------|
-| **Frontend** | React.js 17, Nginx | 3000 | [three-tier-fe](https://github.com/uditmishra03/three-tier-fe) | User interface, Material-UI components |
-| **Backend** | Node.js/Express 4 | 3500 | [three-tier-be](https://github.com/uditmishra03/three-tier-be) | REST API, business logic |
-| **Database** | MongoDB 4.4 | 27017 | Data persistence, document storage |
+| Layer        | Technology         | Port  | Repository                                                     | Purpose                                |
+| ------------ | ------------------ | ----- | -------------------------------------------------------------- | -------------------------------------- |
+| **Frontend** | React.js 17, Nginx | 3000  | [three-tier-fe](https://github.com/uditmishra03/three-tier-fe) | User interface, Material-UI components |
+| **Backend**  | Node.js/Express 4  | 3500  | [three-tier-be](https://github.com/uditmishra03/three-tier-be) | REST API, business logic               |
+| **Database** | MongoDB 4.4        | 27017 | Data persistence, document storage                             |
 
 ### 8.2 Application Components
 
@@ -1324,13 +1324,13 @@ kubectl logs -f deployment/mongodb -n three-tier
 
 ### 10.7 Kubernetes Resources Summary
 
-| Resource | Name | Replicas | Port | Type |
-|----------|------|----------|------|------|
-| Deployment | frontend | 1 | 3000 | ClusterIP |
-| Deployment | api | 2 | 3500 | ClusterIP |
-| Deployment | mongodb | 1 | 27017 | ClusterIP |
-| Ingress | mainlb | - | 80 | ALB |
-| PVC | mongo-volume-claim | - | 4Gi | EBS |
+| Resource   | Name               | Replicas | Port  | Type      |
+| ---------- | ------------------ | -------- | ----- | --------- |
+| Deployment | frontend           | 1        | 3000  | ClusterIP |
+| Deployment | api                | 2        | 3500  | ClusterIP |
+| Deployment | mongodb            | 1        | 27017 | ClusterIP |
+| Ingress    | mainlb             | -        | 80    | ALB       |
+| PVC        | mongo-volume-claim | -        | 4Gi   | EBS       |
 
 ---
 
@@ -1499,6 +1499,336 @@ argocd app sync three-tier-app  # Manual sync (rarely needed with auto-sync)
 - ✅ **Self-Healing** - Auto-corrects drift
 - ✅ **Audit Trail** - All changes tracked in Git
 - ✅ **Rollback** - Easy revert via Git
+
+### 11.6 Kustomize Integration for Automated Image Updates
+
+**Purpose:** Kustomize enables ArgoCD Image Updater to dynamically update container images WITHOUT modifying Git repository files, preventing infinite webhook loops and maintaining clean Git history.
+
+#### 11.6.1 The Problem Kustomize Solves
+
+**Without Kustomize (Infinite Loop Issue):**
+```
+Jenkins builds new image → Pushes to ECR → Updates deployment.yaml in Git 
+→ Commits to Git → Webhook triggers Jenkins → Builds again → Infinite Loop! ❌
+```
+
+**With Kustomize (Clean Automation):**
+```
+Jenkins builds new image → Pushes to ECR → Image Updater detects change 
+→ Updates ArgoCD Application spec (in-memory) → ArgoCD deploys → No Git commit! ✅
+```
+
+#### 11.6.2 How Kustomize Works in This Project
+
+**Complete Workflow:**
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│  STEP 1: Developer Pushes Code to Application Repository            │
+│  ─────────────────────────────────────────────────────────────       │
+│  GitHub (three-tier-be or three-tier-fe) ──► Webhook → Jenkins      │
+└──────────────────────────────────────────────────────────────────────┘
+                               │
+                               ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│  STEP 2: Jenkins CI/CD Pipeline Executes                            │
+│  ────────────────────────────────────────                            │
+│  • SonarQube Analysis & Quality Gate                                │
+│  • Trivy File Scan (vulnerabilities)                                │
+│  • Docker Build with Buildx                                         │
+│  • Push to ECR with tag: YYYYMMDD-XXX (zero-padded)                 │
+│  • Trivy Image Scan                                                 │
+│  ⚠️  Jenkins does NOT update any Kubernetes manifests               │
+└──────────────────────────────────────────────────────────────────────┘
+                               │
+                               ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│  STEP 3: New Image Available in AWS ECR                             │
+│  ────────────────────────────────────────                            │
+│  ECR Registry: 296062548155.dkr.ecr.us-east-1.amazonaws.com         │
+│    └─ backend:20251212-045  ← New image available                   │
+└──────────────────────────────────────────────────────────────────────┘
+                               │
+                               ▼ (Wait up to 2 minutes - polling interval)
+┌──────────────────────────────────────────────────────────────────────┐
+│  STEP 4: ArgoCD Image Updater Monitors ECR                          │
+│  ───────────────────────────────────────                             │
+│  1. Queries ECR for new tags                                        │
+│  2. Filters tags using regex: ^[0-9-]+$                             │
+│  3. Sorts tags: latest-first                                        │
+│  4. Identifies newest: 20251212-045                                 │
+│  5. Reads kustomization.yaml from application Git repo              │
+│     (three-tier-be/manifests/kustomization.yaml)                    │
+│  6. Creates Kustomize image override in ArgoCD Application spec     │
+└──────────────────────────────────────────────────────────────────────┘
+                               │
+                               ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│  STEP 5: ArgoCD Application Spec Updated (In-Memory)                │
+│  ──────────────────────────────────────────────────────              │
+│  ArgoCD Application resource now contains:                          │
+│                                                                      │
+│    apiVersion: argoproj.io/v1alpha1                                 │
+│    kind: Application                                                │
+│    metadata:                                                        │
+│      name: backend                                                  │
+│    spec:                                                            │
+│      source:                                                        │
+│        repoURL: https://github.com/uditmishra03/three-tier-be.git   │
+│        targetRevision: master                                       │
+│        path: manifests  ← Points to kustomization.yaml directory    │
+│        kustomize:       ← Image override added here!                │
+│          images:                                                    │
+│          - 296...ecr.../backend:20251212-045  ← New image tag!      │
+│                                                                      │
+│  ⚠️  This update happens in Kubernetes etcd, NOT in Git!            │
+└──────────────────────────────────────────────────────────────────────┘
+                               │
+                               ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│  STEP 6: ArgoCD Syncs with Kustomize Overlay                        │
+│  ─────────────────────────────────────────────                       │
+│  1. ArgoCD detects Application spec change (auto-sync enabled)     │
+│  2. Fetches manifests from Git: deployment.yaml, service.yaml      │
+│  3. Applies Kustomize overlay (runtime image override)             │
+│  4. Original deployment.yaml has: image: backend:39                │
+│  5. Kustomize overrides to: image: backend:20251212-045            │
+│  6. Deploys to EKS with new image                                  │
+└──────────────────────────────────────────────────────────────────────┘
+                               │
+                               ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│  STEP 7: Kubernetes Rolling Update                                  │
+│  ───────────────────────────────────                                 │
+│  • Old pods with backend:39 terminate gracefully                    │
+│  • New pods with backend:20251212-045 start                         │
+│  • Health checks pass (livenessProbe, readinessProbe)               │
+│  • Application updated! Zero downtime deployment ✅                  │
+└──────────────────────────────────────────────────────────────────────┘
+
+Total Time: 1-2 minutes (30-50 sec Jenkins + 0-2 min Image Updater polling)
+```
+
+#### 11.6.3 Repository Connection Architecture
+
+**Understanding the Cross-Repository Integration:**
+
+This project uses **separate repositories** for infrastructure and applications:
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│  Infrastructure Repository (This Repo)                             │
+│  github.com/uditmishra03/End-to-End-Kubernetes-Three-Tier-...     │
+│                                                                    │
+│  Contains:                                                         │
+│  ├── argocd-apps/                                                  │
+│  │   ├── backend-app.yaml      ← ArgoCD Application definition    │
+│  │   ├── frontend-app.yaml     ← ArgoCD Application definition    │
+│  │   └── database-app.yaml                                        │
+│  ├── k8s-infrastructure/                                           │
+│  │   ├── Database/             ← MongoDB manifests                │
+│  │   └── ingress.yaml          ← ALB Ingress                      │
+│  └── EKS-TF/                   ← EKS cluster Terraform            │
+│                                                                    │
+│  Purpose: Defines WHERE ArgoCD should look for manifests          │
+└────────────────────────────────────────────────────────────────────┘
+                               │
+                               │ ArgoCD reads these files and
+                               │ knows to monitor application repos
+                               ▼
+┌────────────────────────────────────────────────────────────────────┐
+│  Application Repository: Backend                                   │
+│  github.com/uditmishra03/three-tier-be                            │
+│                                                                    │
+│  Contains:                                                         │
+│  ├── manifests/                                                    │
+│  │   ├── kustomization.yaml   ← Lists manifest files              │
+│  │   ├── deployment.yaml      ← Backend deployment spec           │
+│  │   └── service.yaml         ← Backend service spec              │
+│  ├── index.js                 ← Application code                  │
+│  ├── Jenkinsfile              ← CI/CD pipeline                    │
+│  └── Dockerfile               ← Container image definition        │
+│                                                                    │
+│  Purpose: Contains WHAT should be deployed (manifests + code)     │
+└────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────┐
+│  Application Repository: Frontend                                  │
+│  github.com/uditmishra03/three-tier-fe                            │
+│                                                                    │
+│  Contains:                                                         │
+│  ├── manifests/                                                    │
+│  │   ├── kustomization.yaml   ← Lists manifest files              │
+│  │   ├── deployment.yaml      ← Frontend deployment spec          │
+│  │   └── service.yaml         ← Frontend service spec             │
+│  ├── src/                     ← React application code            │
+│  ├── Jenkinsfile              ← CI/CD pipeline                    │
+│  └── Dockerfile               ← Container image definition        │
+│                                                                    │
+│  Purpose: Contains WHAT should be deployed (manifests + code)     │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+#### 11.6.4 ArgoCD Application Configuration Example
+
+**Backend Application Definition (`argocd-apps/backend-app.yaml`):**
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: backend
+  namespace: argocd
+  annotations:
+    # Image Updater Configuration
+    argocd-image-updater.argoproj.io/image-list: backend=296062548155.dkr.ecr.us-east-1.amazonaws.com/backend
+    argocd-image-updater.argoproj.io/backend.update-strategy: latest
+    argocd-image-updater.argoproj.io/backend.allow-tags: regexp:^[0-9-]+$
+    argocd-image-updater.argoproj.io/backend.force-update: "true"
+    argocd-image-updater.argoproj.io/backend.sort-tags: latest-first
+    
+    # CRITICAL: Write-back method set to 'argocd' (not 'git')
+    # This prevents Git commits and infinite webhook loops
+    argocd-image-updater.argoproj.io/write-back-method: argocd
+spec:
+  project: default
+  source:
+    # Points to application repository (NOT infrastructure repo)
+    repoURL: https://github.com/uditmishra03/three-tier-be.git
+    targetRevision: master
+    
+    # Path to manifests directory containing kustomization.yaml
+    path: manifests
+    
+    # Kustomize is auto-detected when kustomization.yaml exists
+    # Image Updater will add image overrides to this section dynamically
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: three-tier
+  syncPolicy:
+    automated:
+      prune: true      # Remove resources deleted from Git
+      selfHeal: true   # Auto-correct manual changes
+    syncOptions:
+    - RespectIgnoreDifferences=true
+```
+
+**Key Configuration Points:**
+
+1. **`source.repoURL`**: Points to **application repository** (three-tier-be), NOT infrastructure repo
+2. **`source.path: manifests`**: Directory containing `kustomization.yaml` file
+3. **`write-back-method: argocd`**: Updates ArgoCD Application spec, NOT Git repository
+4. **Image list annotation**: Tells Image Updater which ECR repository to monitor
+5. **Tag filtering**: `^[0-9-]+$` matches date-based tags (YYYYMMDD-XXX)
+
+#### 11.6.5 Kustomization File Structure
+
+**Backend Kustomization (`three-tier-be/manifests/kustomization.yaml`):**
+
+```yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- deployment.yaml
+- service.yaml
+```
+
+**Purpose:**
+- Lists which Kubernetes manifests to include
+- Tells Kustomize (and ArgoCD) which files to process
+- Enables dynamic image overrides without modifying source files
+
+**Frontend Kustomization (`three-tier-fe/manifests/kustomization.yaml`):**
+
+```yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- deployment.yaml
+- service.yaml
+```
+
+#### 11.6.6 Key Benefits of This Architecture
+
+| Feature              | Without Kustomize                        | With Kustomize                              |
+| -------------------- | ---------------------------------------- | ------------------------------------------- |
+| **Image Updates**    | Jenkins edits deployment.yaml + Git push | Image Updater updates ArgoCD spec in-memory |
+| **Git Commits**      | Every build creates Git commit           | Zero Git commits for image updates          |
+| **Git History**      | Polluted with image tag updates          | Clean, only meaningful changes              |
+| **Webhook Loops**    | Infinite loop (commit triggers build)    | No loops (no commits)                       |
+| **Deployment Speed** | Slower (Git operations + webhook)        | Faster (in-memory updates)                  |
+| **Rollback**         | Git revert includes image history        | Rollback focuses on code changes            |
+
+#### 11.6.7 Verification Commands
+
+**Check Image Updater Activity:**
+```bash
+# View Image Updater logs
+kubectl logs -n argocd -l app.kubernetes.io/name=argocd-image-updater -f
+
+# Check current image in ArgoCD Application spec
+kubectl get application backend -n argocd -o jsonpath='{.spec.source.kustomize.images[0]}'
+kubectl get application frontend -n argocd -o jsonpath='{.spec.source.kustomize.images[0]}'
+```
+
+**Verify Deployment Image:**
+```bash
+# Check actual running image in pods
+kubectl get deployment api -n three-tier -o jsonpath='{.spec.template.spec.containers[0].image}'
+kubectl get deployment frontend -n three-tier -o jsonpath='{.spec.template.spec.containers[0].image}'
+```
+
+**Check ArgoCD Sync Status:**
+```bash
+argocd app get backend
+argocd app get frontend
+```
+
+#### 11.6.8 Troubleshooting Common Issues
+
+**Issue 1: Image Updater Not Detecting New Images**
+```bash
+# Check ECR credentials
+kubectl get secret ecr-registry-secret -n argocd
+
+# Verify Image Updater can reach ECR
+kubectl logs -n argocd -l app.kubernetes.io/name=argocd-image-updater | grep "error\|failed"
+```
+
+**Issue 2: ArgoCD Not Syncing New Images**
+```bash
+# Check auto-sync is enabled
+kubectl get application backend -n argocd -o jsonpath='{.spec.syncPolicy.automated}'
+
+# Force sync if needed
+argocd app sync backend --force
+```
+
+**Issue 3: Wrong Image Being Deployed**
+```bash
+# Check tag sorting configuration
+kubectl get application backend -n argocd -o yaml | grep sort-tags
+
+# Should be: latest-first (not latest-last or name)
+```
+
+#### 11.6.9 Summary
+
+**What Kustomize Does:**
+- ✅ Enables dynamic image updates without Git modifications
+- ✅ Prevents infinite webhook loops
+- ✅ Maintains clean Git history
+- ✅ Supports automated GitOps workflows
+
+**What Kustomize Does NOT Do (in this project):**
+- ❌ NOT used for environment-specific configurations (dev/staging/prod)
+- ❌ NOT used for ConfigMap/Secret generation
+- ❌ NOT used for namespace or label transformations
+
+**Key Takeaway:**  
+Kustomize is used **minimally** in this project - specifically for enabling ArgoCD Image Updater to perform **in-memory image overrides**. This architectural choice creates a clean, automated CI/CD pipeline without the complexity of Git write-backs or webhook loops.
 
 ---
 
@@ -1699,14 +2029,14 @@ Import pre-built Kubernetes monitoring dashboards:
 
 **Additional Recommended Dashboards (Optional):**
 
-| Dashboard ID | Name | Purpose |
-|--------------|------|----------|
-| 315 | Kubernetes cluster monitoring | **Primary dashboard (used in this project)** |
-| 15760 | Kubernetes / Views / Global | Cluster overview |
-| 15761 | Kubernetes / Views / Namespaces | Namespace-level metrics |
-| 15762 | Kubernetes / Views / Pods | Pod-level details |
-| 6417 | Kubernetes Cluster Monitoring | Complete cluster health |
-| 13770 | Kubernetes Cluster | Node and pod metrics |
+| Dashboard ID | Name                            | Purpose                                      |
+| ------------ | ------------------------------- | -------------------------------------------- |
+| 315          | Kubernetes cluster monitoring   | **Primary dashboard (used in this project)** |
+| 15760        | Kubernetes / Views / Global     | Cluster overview                             |
+| 15761        | Kubernetes / Views / Namespaces | Namespace-level metrics                      |
+| 15762        | Kubernetes / Views / Pods       | Pod-level details                            |
+| 6417         | Kubernetes Cluster Monitoring   | Complete cluster health                      |
+| 13770        | Kubernetes Cluster              | Node and pod metrics                         |
 
 ### 13.4 Current Dashboards
 
@@ -1994,13 +2324,13 @@ curl http://<grafana-url>/api/health
 
 ### 15.4 Log Locations
 
-| Component | Location |
-|-----------|----------|
-| Jenkins | `/var/lib/jenkins/jobs/<job-name>/builds/<build-number>/log` |
-| SonarQube | `docker logs sonar` |
-| Kubernetes Pods | `kubectl logs <pod-name> -n three-tier` |
-| ArgoCD | `kubectl logs -n argocd deployment/argocd-server` |
-| Prometheus | `kubectl logs -n default prometheus-stable-kube-prometheus-sta-prometheus-0` |
+| Component       | Location                                                                     |
+| --------------- | ---------------------------------------------------------------------------- |
+| Jenkins         | `/var/lib/jenkins/jobs/<job-name>/builds/<build-number>/log`                 |
+| SonarQube       | `docker logs sonar`                                                          |
+| Kubernetes Pods | `kubectl logs <pod-name> -n three-tier`                                      |
+| ArgoCD          | `kubectl logs -n argocd deployment/argocd-server`                            |
+| Prometheus      | `kubectl logs -n default prometheus-stable-kube-prometheus-sta-prometheus-0` |
 
 ### 15.5 Disaster Recovery
 
