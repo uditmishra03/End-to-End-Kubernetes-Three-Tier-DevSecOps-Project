@@ -24,22 +24,43 @@ Watch the complete project walkthrough and CI/CD pipeline demonstrations:
 - Zero-downtime rolling updates on EKS
 - Real-time monitoring with Prometheus & Grafana
 
-## 📸 Pipeline Screenshots
+## 📸 Key Screenshots
 
-Complete visual walkthrough of the CI/CD pipeline execution:
+Quick visual overview of the deployed project:
 
-### Jenkins CI/CD Pipeline
+### Jenkins CI/CD Pipeline Dashboard
 ![Jenkins Pipeline Overview](assets/screenshots/Jenkins_all_mbp.png)
-*Jenkins dashboard showing all configured pipelines*
+*Jenkins dashboard showing all configured multibranch pipelines for frontend, backend, and infrastructure*
+
+### ArgoCD Applications
+![ArgoCD Applications](assets/screenshots/argo_all_apps.png)
+*ArgoCD showing all applications (Frontend, Backend, Database, Ingress) in healthy and synced state*
+
+### Live Application
+![Application Demo](assets/screenshots/application.png)
+*Live three-tier TO-DO application running on AWS EKS with HTTPS*
+
+---
+
+<details>
+<summary><b>📸 View Complete Pipeline Screenshots</b> (Click to expand - Jenkins, Security Scanning, Docker, ECR)</summary>
+
+### Jenkins Pipeline Stages
 
 ![Frontend Pipeline Execution](assets/screenshots/jenkins_fe_mbp.png)
-![Frontend Pipeline Execution](assets/screenshots/jenkins_fe_mbp_stages.png)
-![Frontend Pipeline Execution](assets/screenshots/Jenkins_console_logs.png)
-*Frontend pipeline stages: Code checkout, SonarQube analysis, Trivy scan, Docker build*
+*Frontend pipeline execution view*
+
+![Frontend Pipeline Stages](assets/screenshots/jenkins_fe_mbp_stages.png)
+*Frontend pipeline stage details and status*
+
+![Jenkins Console Logs](assets/screenshots/Jenkins_console_logs.png)
+*Jenkins console output showing build logs*
 
 ![Backend Pipeline Execution](assets/screenshots/jenkins_be_mbp.png)
-![Backend Pipeline Execution](assets/screenshots/jenkins_be_mbp_stages.png)
-*Backend pipeline stages: Code checkout, SonarQube analysis, Trivy scan, Docker build*
+*Backend pipeline execution view*
+
+![Backend Pipeline Stages](assets/screenshots/jenkins_be_mbp_stages.png)
+*Backend pipeline stage details and status*
 
 ### Security Scanning
 ![SonarQube Analysis](assets/screenshots/sonar_proj.png)
@@ -53,15 +74,22 @@ Complete visual walkthrough of the CI/CD pipeline execution:
 *Docker image build with semantic versioning (YYYYMMDD-BUILD)*
 
 ![ECR Repository](assets/screenshots/ecr_fe.png)
+*Frontend ECR repository with image versions*
+
 ![ECR Repository](assets/screenshots/ecr_be.png)
-*AWS ECR showing frontend and backend image repositories*
+*Backend ECR repository with image versions*
 
 ![Image Push Success](assets/screenshots/img_push_success.png)
 *Successful Docker image push to ECR with version tags*
 
-### ArgoCD GitOps Deployment
-![ArgoCD Dashboard](assets/screenshots/argo_all_apps.png)
-*ArgoCD applications overview - Frontend, Backend, Database, Ingress*
+</details>
+
+---
+
+<details>
+<summary><b>📸 View ArgoCD GitOps Deployment Screenshots</b> (Click to expand - ArgoCD, Kubernetes, Image Updater)</summary>
+
+### ArgoCD Application Status
 
 ![Frontend Application Sync Status](assets/screenshots/argo_fe.png)
 *ArgoCD showing healthy and synced application status*
@@ -83,7 +111,14 @@ Complete visual walkthrough of the CI/CD pipeline execution:
 
 *Kubernetes deployment details with pod status*
 
-### Kubernetes Cluster
+</details>
+
+---
+
+<details>
+<summary><b>📸 View Kubernetes Cluster Screenshots</b> (Click to expand - Nodes, Pods, Services)</summary>
+
+### EKS Cluster Nodes
 ![EKS Cluster Nodes](assets/screenshots/nodes.png)
 
 *EKS cluster nodes and resource utilization*
@@ -96,7 +131,14 @@ Complete visual walkthrough of the CI/CD pipeline execution:
 
 *Kubernetes services and ALB ingress configuration*
 
-### Monitoring Stack
+</details>
+
+---
+
+<details>
+<summary><b>📸 View Monitoring Stack Screenshots</b> (Click to expand - Prometheus, Grafana)</summary>
+
+### Prometheus Monitoring
 ![Prometheus Targets](assets/screenshots/prometheus_2.png)
 *Prometheus targets showing all monitored endpoints*
 
@@ -121,15 +163,22 @@ Complete visual walkthrough of the CI/CD pipeline execution:
 ![Pod Monitoring](assets/screenshots/grafana_db_0.png)
 *Pod-level CPU, memory, and network metrics*
 
-### Application Demo
-![Frontend Application](assets/screenshots/application.png)
-*Live TO-DO application with DevSecOps demo banner*
+</details>
+
+---
+
+<details>
+<summary><b>📸 View Application Backend Screenshots</b> (Click to expand - API endpoints)</summary>
+
+### Backend API Endpoints
 
 ![Backend API](assets/screenshots/app_be.png)
 
 ![Backend API](assets/screenshots/app_be_2.png)
 
 *Backend API version endpoint response*
+
+</details>
 
 ---
 
